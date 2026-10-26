@@ -1,4 +1,4 @@
-import { Activity, ArrowRight, BookOpen, Compass, HeartCrack, MapPin, MoonStar, ShieldCheck } from "lucide-react";
+import { Activity, ArrowRight, BookOpen, Compass, MapPin, ShieldCheck } from "lucide-react";
 import type { ComponentType } from "react";
 
 import { Aurora } from "@/components/effects/aurora";

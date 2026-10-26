@@ -63,73 +63,86 @@ export default async function AdminPage() {
   await requireRole("ADMIN", "/admin");
   const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
-  const [
-    applications,
-    reports,
-    crisis,
-    listeners,
-    contactMessages,
-    recentSessions,
-    allUsers,
-    totalMinutesHeard,
-  ] = await Promise.all([
-    db.listenerApplication.findMany({
-      where: { status: "PENDING" },
-      orderBy: { createdAt: "asc" },
-      include: { user: true },
-    }),
-    db.report.findMany({
-      where: { status: "OPEN" },
-      orderBy: { createdAt: "asc" },
-      include: {
-        reporter: { select: { alias: true } },
-        session: {
-          select: {
-            id: true,
-            seekerId: true,
-            seeker: { select: { alias: true } },
-            listener: { select: { displayName: true, userId: true } },
+  let applications: Awaited<ReturnType<typeof db.listenerApplication.findMany<{ include: { user: true } }>>> = [];
+  let reports: Awaited<ReturnType<typeof db.report.findMany<{ include: { reporter: { select: { alias: true } }; session: { select: { id: true; seekerId: true; seeker: { select: { alias: true } }; listener: { select: { displayName: true; userId: true } } } } } }>>> = [];
+  let crisis: Awaited<ReturnType<typeof db.chatSession.findMany<{ include: { seeker: { select: { alias: true } }; listener: { select: { displayName: true } } } }>>> = [];
+  let listeners: Awaited<ReturnType<typeof db.listenerProfile.findMany<{ include: { user: { select: { email: true; isSuspended: true } } } }>>> = [];
+  let contactMessages: Awaited<ReturnType<typeof db.contactMessage.findMany>> = [];
+  let recentSessions: Awaited<ReturnType<typeof db.chatSession.findMany<{ include: { seeker: { select: { alias: true } }; listener: { select: { displayName: true } } } }>>> = [];
+  let allUsers: Awaited<ReturnType<typeof db.user.findMany<{ select: { id: true; email: true; alias: true; role: true; isSuspended: true; createdAt: true } }>>> = [];
+  let totalMinutesHeard: { _sum: { minutesHeard: number | null } } = { _sum: { minutesHeard: 0 } };
+
+  try {
+    const results = await Promise.all([
+      db.listenerApplication.findMany({
+        where: { status: "PENDING" },
+        orderBy: { createdAt: "asc" },
+        include: { user: true },
+      }),
+      db.report.findMany({
+        where: { status: "OPEN" },
+        orderBy: { createdAt: "asc" },
+        include: {
+          reporter: { select: { alias: true } },
+          session: {
+            select: {
+              id: true,
+              seekerId: true,
+              seeker: { select: { alias: true } },
+              listener: { select: { displayName: true, userId: true } },
+            },
           },
         },
-      },
-    }),
-    db.chatSession.findMany({
-      where: { crisisFlaggedAt: { gte: weekAgo } },
-      orderBy: { crisisFlaggedAt: "desc" },
-      include: { seeker: { select: { alias: true } }, listener: { select: { displayName: true } } },
-    }),
-    db.listenerProfile.findMany({
-      orderBy: { createdAt: "desc" },
-      include: { user: { select: { email: true, isSuspended: true } } },
-    }),
-    db.contactMessage.findMany({
-      orderBy: { createdAt: "desc" },
-      take: 50,
-    }),
-    db.chatSession.findMany({
-      orderBy: { createdAt: "desc" },
-      take: 20,
-      include: {
-        seeker: { select: { alias: true } },
-        listener: { select: { displayName: true } },
-      },
-    }),
-    db.user.findMany({
-      orderBy: { createdAt: "desc" },
-      take: 50,
-      select: {
-        id: true,
-        email: true,
-        alias: true,
-        role: true,
-        isSuspended: true,
-        createdAt: true,
-      },
-    }),
-    db.listenerProfile.aggregate({
-      _sum: { minutesHeard: true },
-    }),
-  ]);
+      }),
+      db.chatSession.findMany({
+        where: { crisisFlaggedAt: { gte: weekAgo } },
+        orderBy: { crisisFlaggedAt: "desc" },
+        include: { seeker: { select: { alias: true } }, listener: { select: { displayName: true } } },
+      }),
+      db.listenerProfile.findMany({
+        orderBy: { createdAt: "desc" },
+        include: { user: { select: { email: true, isSuspended: true } } },
+      }),
+      db.contactMessage.findMany({
+        orderBy: { createdAt: "desc" },
+        take: 50,
+      }),
+      db.chatSession.findMany({
+        orderBy: { createdAt: "desc" },
+        take: 20,
+        include: {
+          seeker: { select: { alias: true } },
+          listener: { select: { displayName: true } },
+        },
+      }),
+      db.user.findMany({
+        orderBy: { createdAt: "desc" },
+        take: 50,
+        select: {
+          id: true,
+          email: true,
+          alias: true,
+          role: true,
+          isSuspended: true,
+          createdAt: true,
+        },
+      }),
+      db.listenerProfile.aggregate({
+        _sum: { minutesHeard: true },
+      }),
+    ]);
+
+    applications = results[0];
+    reports = results[1];
+    crisis = results[2];
+    listeners = results[3];
+    contactMessages = results[4];
+    recentSessions = results[5];
+    allUsers = results[6];
+    totalMinutesHeard = results[7];
+  } catch (error) {
+    console.error("[HeartSync] Failed to load some admin dashboard queries:", error);
+  }
 
   const activeSessions = recentSessions.filter((s) => s.status === "ACTIVE");
   const unreadContactCount = contactMessages.filter((m) => m.status === "UNREAD").length;
