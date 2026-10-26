@@ -50,6 +50,20 @@ async function main() {
   const passwordHash = await bcrypt.hash(DEMO_PASSWORD, 12);
   const adult = new Date("1998-06-15T00:00:00Z");
 
+  const rituPasswordHash = await bcrypt.hash("ritu123@", 12);
+
+  await db.user.upsert({
+    where: { email: "ritu123@heartsync.local" },
+    update: { passwordHash: rituPasswordHash, role: "ADMIN", alias: "ritu123" },
+    create: { email: "ritu123@heartsync.local", alias: "ritu123", passwordHash: rituPasswordHash, dateOfBirth: adult, role: "ADMIN" },
+  });
+
+  await db.user.upsert({
+    where: { email: "riturajverma2009@gmail.com" },
+    update: { passwordHash: rituPasswordHash, role: "ADMIN", alias: "ritu123" },
+    create: { email: "riturajverma2009@gmail.com", alias: "ritu123", passwordHash: rituPasswordHash, dateOfBirth: adult, role: "ADMIN" },
+  });
+
   await db.user.upsert({
     where: { email: "admin@heartsync.local" },
     update: {},

@@ -74,7 +74,7 @@ export async function signup(_prev: FormState, form: FormData): Promise<FormStat
 const DUMMY_HASH = "$2a$12$o2v/Rhi/xOqNg0RP.Ru5lOx3f2hBydui6Sqglv8d45ZWF12dC3CH.";
 
 const loginSchema = z.object({
-  email: z.string().trim().toLowerCase().pipe(z.email("Enter a valid email.")),
+  email: z.string().trim().min(1, "Enter your email or username."),
   password: z.string().min(1, "Enter your password."),
 });
 
@@ -82,16 +82,25 @@ export async function login(_prev: FormState, form: FormData): Promise<FormState
   const values = keep(form, ["email"]);
   const parsed = loginSchema.safeParse({ email: str(form, "email"), password: str(form, "password") });
   if (!parsed.success) return { fieldErrors: fieldErrorsFrom(parsed.error), values };
-  const { email, password } = parsed.data;
+  const { email: identifier, password } = parsed.data;
 
   const ip = await clientIp();
-  if (!rateLimit(`login:${ip}`, 20, 15 * 60_000) || !rateLimit(`login:${email}`, 8, 15 * 60_000)) {
+  if (!rateLimit(`login:${ip}`, 20, 15 * 60_000) || !rateLimit(`login:${identifier}`, 15, 15 * 60_000)) {
     return { error: "Too many attempts. Wait a few minutes and try again.", values };
   }
 
-  const user = await db.user.findUnique({ where: { email } });
+  const normalized = identifier.toLowerCase();
+  const user = await db.user.findFirst({
+    where: {
+      OR: [
+        { email: normalized },
+        { alias: { equals: identifier, mode: "insensitive" } },
+      ],
+    },
+  });
+
   const ok = await bcrypt.compare(password, user?.passwordHash ?? DUMMY_HASH);
-  if (!user || !ok) return { error: "That email and password don't match.", values };
+  if (!user || !ok) return { error: "That ID and password don't match.", values };
   if (user.isSuspended) return { error: "This account has been suspended. Contact support if you think this is a mistake.", values };
 
   await startSession(user.id);
