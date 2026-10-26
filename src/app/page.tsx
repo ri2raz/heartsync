@@ -43,12 +43,12 @@ export default async function HomePage() {
       <SupportPillars />
       <HowItWorks />
       <WhyHeartSync />
-      <HowWeStarted />
       <CanAndCannot />
       <ListenerPreview listeners={listeners} />
       <PricingTeaser />
       <ListenerCta />
       <Faq />
+      <HowWeStarted />
       <CrisisBand />
       <FinalCta signedIn={signedIn} />
     </>
