@@ -1,0 +1,160 @@
+// HeartSync data model.
+// SQLite is used for local development. For production, change `provider` to "postgresql".
+// Enum-like fields are stored as strings so the schema works on both databases;
+// their allowed values live in src/lib/constants.ts.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id              String   @id @default(cuid())
+  email           String   @unique
+  passwordHash    String
+  /// Name shown to others. Seekers usually pick a nickname.
+  alias           String
+  dateOfBirth     DateTime
+  /// SEEKER | LISTENER | ADMIN
+  role            String   @default("SEEKER")
+  minutesBalance  Int      @default(0)
+  freeChatUsed    Boolean  @default(false)
+  isSuspended     Boolean  @default(false)
+  createdAt       DateTime @default(now())
+
+  listenerProfile ListenerProfile?
+  application     ListenerApplication?
+  seekerSessions  ChatSession[]        @relation("SeekerSessions")
+  messages        Message[]
+  reports         Report[]
+  payments        Payment[]
+}
+
+model ListenerProfile {
+  id            String   @id @default(cuid())
+  userId        String   @unique
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  displayName   String
+  /// BIG_BRO | BIG_SIS | BIG_SIB
+  title         String
+  bio           String
+  /// Comma-separated language codes, e.g. "hi,en"
+  languages     String
+  /// Comma-separated topic slugs, e.g. "exams,breakups"
+  topics        String
+  avatarHue     Int      @default(340)
+  isOnline      Boolean  @default(false)
+  /// Updated by the listener dashboard and chat polling. Online = isOnline and seen recently.
+  lastSeenAt    DateTime?
+  isActive      Boolean  @default(true)
+  ratingSum     Int      @default(0)
+  ratingCount   Int      @default(0)
+  minutesHeard  Int      @default(0)
+  createdAt     DateTime @default(now())
+
+  sessions      ChatSession[]
+
+  @@index([isActive, isOnline])
+}
+
+model ListenerApplication {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fullName    String
+  phone       String
+  city        String
+  /// BIG_BRO | BIG_SIS | BIG_SIB
+  title       String
+  languages   String
+  topics      String
+  about       String
+  motivation  String
+  /// PENDING | APPROVED | REJECTED
+  status      String   @default("PENDING")
+  reviewNote  String?
+  createdAt   DateTime @default(now())
+  reviewedAt  DateTime?
+
+  @@index([status])
+}
+
+model ChatSession {
+  id             String    @id @default(cuid())
+  seekerId       String
+  seeker         User      @relation("SeekerSessions", fields: [seekerId], references: [id], onDelete: Cascade)
+  listenerId     String
+  listener       ListenerProfile @relation(fields: [listenerId], references: [id], onDelete: Cascade)
+  /// REQUESTED | ACTIVE | ENDED | DECLINED | CANCELLED
+  status         String    @default("REQUESTED")
+  minutes        Int
+  isFree         Boolean   @default(false)
+  createdAt      DateTime  @default(now())
+  startedAt      DateTime?
+  endedAt        DateTime?
+  /// time_up | seeker_ended | listener_ended | expired | declined | cancelled | moderation
+  endReason      String?
+  minutesRefunded Int      @default(0)
+  crisisFlaggedAt DateTime?
+  rating         Int?
+  feedback       String?
+
+  messages       Message[]
+  reports        Report[]
+
+  @@index([seekerId, createdAt])
+  @@index([listenerId, status])
+  @@index([crisisFlaggedAt])
+}
+
+model Message {
+  id        Int         @id @default(autoincrement())
+  sessionId String
+  session   ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  /// Null for system messages.
+  senderId  String?
+  sender    User?       @relation(fields: [senderId], references: [id], onDelete: SetNull)
+  /// TEXT | SYSTEM | CRISIS
+  kind      String      @default("TEXT")
+  body      String
+  createdAt DateTime    @default(now())
+
+  @@index([sessionId, id])
+}
+
+model Report {
+  id         String      @id @default(cuid())
+  sessionId  String
+  session    ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  reporterId String
+  reporter   User        @relation(fields: [reporterId], references: [id], onDelete: Cascade)
+  reason     String
+  details    String?
+  /// OPEN | RESOLVED
+  status     String      @default("OPEN")
+  createdAt  DateTime    @default(now())
+
+  @@unique([sessionId, reporterId])
+  @@index([status])
+}
+
+model Payment {
+  id                String   @id @default(cuid())
+  userId            String
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  packId            String
+  amountPaise       Int
+  minutes           Int
+  razorpayOrderId   String   @unique
+  razorpayPaymentId String?  @unique
+  /// CREATED | PAID
+  status            String   @default("CREATED")
+  createdAt         DateTime @default(now())
+  paidAt            DateTime?
+
+  @@index([userId])
+}
