@@ -4,11 +4,13 @@ import {
   Ban,
   Check,
   EyeOff,
+  Flame,
   HandHeart,
   Languages,
   LifeBuoy,
   MessageCircleHeart,
   Plus,
+  Quote,
   ShieldAlert,
   Sparkles,
   Wallet,
@@ -276,6 +278,117 @@ export function WhyHeartSync() {
                 We&apos;re peer support — like a caring older sibling — not therapy. When something needs a
                 professional, your listener will say so and point you to one.
               </p>
+            </SpotlightCard>
+          </Reveal>
+        </div>
+      </Container>
+    </section>
+  );
+}
+
+export function HowWeStarted() {
+  return (
+    <section id="story" className="py-24">
+      <Container>
+        <SectionHeading
+          eyebrow="How we started"
+          title={
+            <>
+              We started this because we saw too many friends{" "}
+              <span className="italic text-rose">suffer in silence.</span>
+            </>
+          }
+          description="HeartSync wasn't created in a boardroom. It was born from hostel rooms, coaching corridors, and the painful reality of losing peers to academic pressure. We already went through that fire — and we couldn't just look away."
+        />
+
+        <div className="mt-14 grid gap-6 md:grid-cols-3">
+          <Reveal className="md:col-span-2">
+            <SpotlightCard className="h-full">
+              <span className="inline-flex size-10 items-center justify-center rounded-2xl bg-rose-soft text-rose">
+                <Quote className="size-5" aria-hidden />
+              </span>
+              <h3 className="mt-5 text-2xl font-semibold tracking-tight">
+                The silence in coaching hubs is what broke us
+              </h3>
+              <p className="mt-3 leading-relaxed text-muted">
+                Kota, Delhi, Hyderabad, Bengaluru — in crowded hostel rooms across the country, millions of young aspirants wake up to 14-hour study grinds, sleep deprivation, and the suffocating guilt of middle-class family sacrifices.
+              </p>
+              <p className="mt-2.5 leading-relaxed text-muted">
+                Too often, when scores drop or backlogs mount, students isolate themselves. We saw friends break down behind closed doors, and tragically, we saw news headlines of student suicides that were never just statistics to us. They were our friends, peers, and roommates who felt completely alone with nowhere safe to turn.
+              </p>
+              <div className="mt-6 flex flex-wrap items-center gap-2 border-t border-line/60 pt-4 text-xs font-medium text-muted">
+                <Badge tone="rose">The Core Truth</Badge>
+                <span>No exam score or rank is worth a human life. Ever.</span>
+              </div>
+            </SpotlightCard>
+          </Reveal>
+
+          <Reveal delay={0.06}>
+            <SpotlightCard className="flex h-full flex-col justify-between">
+              <div>
+                <span className="inline-flex size-10 items-center justify-center rounded-2xl bg-lilac/35 text-ink">
+                  <Flame className="size-5 text-rose" aria-hidden />
+                </span>
+                <h3 className="mt-5 text-2xl font-semibold tracking-tight">
+                  We already went through it
+                </h3>
+                <p className="mt-3 leading-relaxed text-muted">
+                  We aren&apos;t distant corporate observers. We are former aspirants, drop-year survivors, and students who know the physical burnout, the 3 AM panic spirals, and the terror of letting parents down.
+                </p>
+                <p className="mt-2.5 leading-relaxed text-muted">
+                  We built the space we desperately needed when we were 18 and drowning in silence.
+                </p>
+              </div>
+              <div className="mt-6 rounded-2xl bg-surface-2 p-3.5 text-xs text-muted">
+                &ldquo;You don&apos;t need someone to fix you or judge you. You just need someone who has walked that road to listen.&rdquo;
+              </div>
+            </SpotlightCard>
+          </Reveal>
+
+          <Reveal delay={0.12}>
+            <SpotlightCard className="h-full">
+              <span className="inline-flex size-10 items-center justify-center rounded-2xl bg-sky/40 text-ink">
+                <HandHeart className="size-5 text-sky-600 dark:text-sky-400" aria-hidden />
+              </span>
+              <h3 className="mt-5 text-2xl font-semibold tracking-tight">
+                Peer support, not clinical lectures
+              </h3>
+              <p className="mt-3 leading-relaxed text-muted">
+                Therapy is vital for clinical diagnosis, but when you&apos;re feeling worthless at midnight after a mock test, clinical jargon can feel cold and intimidating.
+              </p>
+              <p className="mt-2.5 leading-relaxed text-muted">
+                What helps first is a Big Bro or Big Sis — an older peer who sits with you in the dark, reminds you to breathe, and helps you see that there is a vast, beautiful life beyond any entrance exam.
+              </p>
+            </SpotlightCard>
+          </Reveal>
+
+          <Reveal delay={0.18} className="md:col-span-2">
+            <SpotlightCard className="flex h-full flex-col justify-between">
+              <div>
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <span className="inline-flex size-10 items-center justify-center rounded-2xl bg-emerald-500/12 text-emerald-600 dark:text-emerald-400">
+                    <LifeBuoy className="size-5" aria-hidden />
+                  </span>
+                  <Badge tone="green">100% Free &amp; Confidential</Badge>
+                </div>
+                <h3 className="mt-5 text-2xl font-semibold tracking-tight">
+                  Our promise: A safe corner with zero barriers
+                </h3>
+                <p className="mt-3 leading-relaxed text-muted">
+                  HeartSync is 100% free, strictly anonymous, and platonic. No credit cards, no public profiles, no phone numbers shared. Every listener is verified and trained to listen with empathy, patience, and zero judgment.
+                </p>
+              </div>
+              <div className="mt-6 flex flex-col gap-3 border-t border-line/60 pt-4 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-xs text-muted">
+                  In crisis? Call Tele-MANAS on <strong className="text-ink">14416</strong> or <strong className="text-ink">112</strong> (24×7, free).
+                </p>
+                <Link
+                  href="/listeners"
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-rose hover:underline"
+                >
+                  Talk to a Big Bro or Sis <ArrowRight className="size-3.5" />
+                </Link>
+              </div>
             </SpotlightCard>
           </Reveal>
         </div>

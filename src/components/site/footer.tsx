@@ -23,6 +23,7 @@ const COLUMNS = [
   {
     title: "Trust",
     links: [
+      { href: "/how-we-started", label: "How we started" },
       { href: "/safety", label: "Safety" },
       { href: "/contact", label: "Contact Us" },
       { href: "/help", label: "Crisis helplines" },

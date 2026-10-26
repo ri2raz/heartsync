@@ -5,6 +5,7 @@ import {
   Faq,
   FinalCta,
   HowItWorks,
+  HowWeStarted,
   ListenerCta,
   ListenerPreview,
   PricingTeaser,
@@ -42,6 +43,7 @@ export default async function HomePage() {
       <SupportPillars />
       <HowItWorks />
       <WhyHeartSync />
+      <HowWeStarted />
       <CanAndCannot />
       <ListenerPreview listeners={listeners} />
       <PricingTeaser />
