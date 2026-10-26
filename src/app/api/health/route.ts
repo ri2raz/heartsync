@@ -16,11 +16,15 @@ export async function GET() {
     errorMsg = err instanceof Error ? err.message : String(err);
   }
 
+  const dbEnvKeys = Object.keys(process.env).filter(k =>
+    /DATABASE|POSTGRES|DB|NEON|PRISMA|URL/i.test(k)
+  );
+
   return NextResponse.json({
     status: dbOk ? "ok" : "error",
     hasDatabaseUrl: Boolean(rawUrl),
+    foundDbKeys: dbEnvKeys,
     urlLength: rawUrl?.length ?? 0,
-    urlStartsWith: rawUrl?.slice(0, 15) ?? null,
     dbConnected: dbOk,
     userCount,
     error: errorMsg,
