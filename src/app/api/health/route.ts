@@ -17,18 +17,6 @@ export async function GET(request: NextRequest) {
     errorMsg = err instanceof Error ? err.message : String(err);
   }
 
-  let emailTestResult = null;
-  if (request.nextUrl.searchParams.get("testEmail") === "1") {
-    emailTestResult = await sendAdminEmail({
-      type: "contact",
-      title: "Test Notification",
-      senderName: "HeartSync System Verification",
-      senderEmail: "verify@heartsync.local",
-      subject: "Resend Live Integration Test",
-      details: "This is a verification test to confirm your live email notifications are working.",
-    });
-  }
-
   return NextResponse.json({
     status: dbOk ? "ok" : "error",
     dbConnected: dbOk,
@@ -36,7 +24,6 @@ export async function GET(request: NextRequest) {
     hasResendKey: Boolean(resendApiKey),
     resendKeyPrefix: resendApiKey ? resendApiKey.slice(0, 7) + "..." : null,
     adminNotificationEmail: ADMIN_NOTIFICATION_EMAIL,
-    emailTestResult,
     error: errorMsg,
   });
 }
