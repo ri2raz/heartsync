@@ -24,7 +24,10 @@ export default async function HomePage() {
       getCurrentUser(),
       db.listenerProfile.findMany({ where: { isActive: true }, orderBy: { createdAt: "asc" }, take: 200 }),
     ]);
-  } catch (error) {
+  } catch (error: unknown) {
+    if ((error as { digest?: string })?.digest === "DYNAMIC_SERVER_USAGE") {
+      throw error;
+    }
     console.error("[HeartSync] Failed to fetch home page data:", error);
   }
 

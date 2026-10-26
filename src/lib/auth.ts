@@ -36,7 +36,10 @@ export const getCurrentUser = cache(async () => {
     });
     if (!user || user.isSuspended) return null;
     return user;
-  } catch (error) {
+  } catch (error: unknown) {
+    if ((error as { digest?: string })?.digest === "DYNAMIC_SERVER_USAGE") {
+      throw error;
+    }
     console.error("[HeartSync] getCurrentUser error:", error);
     return null;
   }
