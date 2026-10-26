@@ -65,13 +65,13 @@ export function StartChatForm({
 
       <FormError message={state.error} />
 
-      {online ? (
-        <SubmitButton variant="rose" pendingLabel="Sending request…">
-          Request a chat with {listenerName}
-        </SubmitButton>
-      ) : (
-        <p className="rounded-2xl bg-surface-2 px-4 py-3 text-center text-sm text-muted">
-          {listenerName} is offline right now. Try someone who&apos;s online, or come back later.
+      <SubmitButton variant="rose" pendingLabel="Sending request…">
+        Request a chat with {listenerName}
+      </SubmitButton>
+
+      {!online && (
+        <p className="rounded-2xl bg-surface-2 px-3.5 py-2.5 text-center text-xs text-muted">
+          ● {listenerName} is currently away. Your request will pop up on their screen as soon as they check in.
         </p>
       )}
     </form>

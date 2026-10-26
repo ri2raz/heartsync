@@ -142,7 +142,7 @@ export const CHAT_LENGTHS = [20, 40, 60] as const;
 export const REQUEST_TIMEOUT_MS = 5 * 60 * 1000;
 export const MAX_MESSAGE_LENGTH = 1000;
 /** A listener counts as online only if their dashboard or chat has checked in this recently. */
-export const ONLINE_GRACE_MS = 2 * 60 * 1000;
+export const ONLINE_GRACE_MS = 60 * 60 * 1000; // 1 hour grace period
 
 export const PACKS = [
   {

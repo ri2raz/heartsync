@@ -27,6 +27,11 @@ export default async function ListenerDashboard() {
   if (user.role !== "LISTENER" || !user.listenerProfile) redirect("/");
   const profile = user.listenerProfile;
 
+  await db.listenerProfile.update({
+    where: { id: profile.id },
+    data: { lastSeenAt: new Date() },
+  }).catch(() => {});
+
   const [requests, completed] = await Promise.all([
     pendingRequestsForListener(user.id),
     db.chatSession.count({ where: { listenerId: profile.id, status: "ENDED" } }),

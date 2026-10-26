@@ -53,10 +53,11 @@ export function minutesUsed(session: { minutes: number; startedAt: Date | null }
 }
 
 export function isListenerOnline(
-  listener: { isOnline: boolean; isActive?: boolean; lastSeenAt: Date | null },
+  listener: { isOnline: boolean; isActive?: boolean; lastSeenAt?: Date | null },
   now: Date = new Date(),
 ): boolean {
-  if (listener.isActive === false || !listener.isOnline || !listener.lastSeenAt) return false;
+  if (listener.isActive === false || !listener.isOnline) return false;
+  if (!listener.lastSeenAt) return true;
   return now.getTime() - listener.lastSeenAt.getTime() <= ONLINE_GRACE_MS;
 }
 

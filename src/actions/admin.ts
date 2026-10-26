@@ -26,6 +26,8 @@ export async function approveApplication(applicationId: string): Promise<FormSta
         languages: app.languages,
         topics: app.topics,
         avatarHue: hueFromString(app.userId),
+        isOnline: true,
+        lastSeenAt: new Date(),
       },
     }),
   ]);
