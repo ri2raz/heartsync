@@ -101,11 +101,11 @@ export async function login(_prev: FormState, form: FormData): Promise<FormState
   });
 
   const ok = await bcrypt.compare(password, user?.passwordHash ?? DUMMY_HASH);
-  if (!user || !ok) return { error: "That ID and password don't match.", values };
+  if (!user || !ok) return { error: "That email and password don't match.", values };
   if (user.isSuspended) return { error: "This account has been suspended. Contact support if you think this is a mistake.", values };
 
   await startSession(user.id);
-  const fallback = user.role === "ADMIN" ? "/admin" : user.role === "LISTENER" ? "/listener/dashboard" : "/listeners";
+  const fallback = user.role === "LISTENER" ? "/listener/dashboard" : "/listeners";
   redirect(safeRedirectPath(str(form, "next"), fallback));
 }
 

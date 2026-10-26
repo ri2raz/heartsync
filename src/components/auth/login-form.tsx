@@ -17,8 +17,8 @@ export function LoginForm({ next }: { next?: string }) {
     <form action={action} className="space-y-5" noValidate>
       {next ? <input type="hidden" name="next" value={next} /> : null}
       <FormError message={state.error} />
-      <Field label="Admin ID or Email" htmlFor="email" error={fe.email}>
-        <Input id="email" name="email" type="text" placeholder="ritu123 or your email" autoComplete="username" defaultValue={typeof state.values?.email === "string" ? state.values.email : undefined} required />
+      <Field label="Email" htmlFor="email" error={fe.email}>
+        <Input id="email" name="email" type="email" placeholder="you@example.com" autoComplete="email" defaultValue={typeof state.values?.email === "string" ? state.values.email : undefined} required />
       </Field>
       <Field label="Password" htmlFor="password" error={fe.password}>
         <Input id="password" name="password" type="password" autoComplete="current-password" required />
