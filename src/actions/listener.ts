@@ -22,7 +22,7 @@ const applicationSchema = z.object({
   city: z.string().trim().min(2, "Enter your city.").max(60),
   title: z.enum(titleKeys, "Choose how you'd like to be introduced."),
   languages: z.array(z.enum(languageCodes)).min(1, "Pick at least one language.").max(5),
-  topics: z.array(z.enum(topicSlugs)).min(1, "Pick at least one topic.").max(6),
+  topics: z.array(z.enum(topicSlugs)).min(1, "Pick at least one topic.").max(10),
   about: z.string().trim().min(80, "Tell us a bit more — at least 80 characters.").max(800),
   motivation: z.string().trim().min(80, "Tell us a bit more — at least 80 characters.").max(800),
   conduct: z.literal("on", "You need to accept the listener code of conduct."),
@@ -111,7 +111,7 @@ const profileSchema = z.object({
   displayName: z.string().trim().min(2).max(30),
   bio: z.string().trim().min(40, "Write at least 40 characters.").max(600),
   languages: z.array(z.enum(languageCodes)).min(1, "Pick at least one language.").max(5),
-  topics: z.array(z.enum(topicSlugs)).min(1, "Pick at least one topic.").max(6),
+  topics: z.array(z.enum(topicSlugs)).min(1, "Pick at least one topic.").max(10),
 });
 
 export async function updateListenerProfile(_prev: FormState, form: FormData): Promise<FormState> {

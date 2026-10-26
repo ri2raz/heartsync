@@ -1,4 +1,4 @@
-import { ArrowRight, BookOpen, HeartCrack, MapPin, MoonStar, ShieldCheck } from "lucide-react";
+import { Activity, ArrowRight, BookOpen, Compass, HeartCrack, MapPin, MoonStar, ShieldCheck } from "lucide-react";
 import type { ComponentType } from "react";
 
 import { Aurora } from "@/components/effects/aurora";
@@ -13,12 +13,12 @@ import { cn } from "@/lib/utils";
 type Mood = { text: string; icon: ComponentType<{ className?: string }>; tone: string; height: string };
 
 const MOODS_LEFT: Mood[] = [
-  { text: "3 AM thoughts band nahi ho rahe?", icon: MoonStar, tone: "bg-lilac/35", height: "min-h-60" },
-  { text: "Naya sheher, koi dost nahi?", icon: MapPin, tone: "bg-sky/40", height: "min-h-40" },
+  { text: "Physical burnout: 3 ghante ki neend, zero energy?", icon: Activity, tone: "bg-lilac/35", height: "min-h-60" },
+  { text: "Naya sheher, hostel aur akelapan?", icon: MapPin, tone: "bg-sky/40", height: "min-h-40" },
 ];
 const MOODS_RIGHT: Mood[] = [
-  { text: "Exam ke baad dar lag raha hai?", icon: BookOpen, tone: "bg-butter/45", height: "min-h-40" },
-  { text: "Breakup ke baad sab khaali lagta hai?", icon: HeartCrack, tone: "bg-rose-soft", height: "min-h-56" },
+  { text: "Mock test drop aur failure ka darr?", icon: BookOpen, tone: "bg-butter/45", height: "min-h-40" },
+  { text: "Family expectations aur life beyond the exam?", icon: Compass, tone: "bg-rose-soft", height: "min-h-56" },
 ];
 
 function MoodCard({ mood, delay }: { mood: Mood; delay: number }) {

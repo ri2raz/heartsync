@@ -23,12 +23,26 @@ import { Avatar } from "@/components/ui/avatar";
 import { Badge, OnlineDot } from "@/components/ui/badge";
 import { ButtonLink, ShimmerLink } from "@/components/ui/button";
 import { Container, SectionHeading } from "@/components/ui/section";
-import { FREE_CHAT_MINUTES, HELPLINES, LANGUAGES, LISTENER_TITLES, PACKS, TOPICS } from "@/lib/constants";
+import { FREE_CHAT_MINUTES, HELPLINES, LANGUAGES, LISTENER_TITLES, PACKS, SUPPORT_PILLARS, TOPICS } from "@/lib/constants";
 import { formatRupees } from "@/lib/session-rules";
 import { cn, splitList } from "@/lib/utils";
 
-const MARQUEE_ROW_A = ["Exam pressure", "Breakups", "Loneliness", "Overthinking", "Career confusion", "Family pressure", "Hostel life"];
-const MARQUEE_ROW_B = ["Naya sheher", "Self-doubt", "Friendship drama", "Work stress", "Comparison", "Drop year", "Homesick"];
+const MARQUEE_ROW_A = [
+  "Physical health & energy",
+  "Stress & mental well-being",
+  "Academic pressure & failure",
+  "Life beyond the exam",
+  "Study fatigue & burnout",
+  "Hostel life & homesick",
+];
+const MARQUEE_ROW_B = [
+  "Family pressure & expectations",
+  "Loneliness & friendship",
+  "A safe space to talk",
+  "Somatic stress & sleep debt",
+  "Mock tests & drop year",
+  "Zero judgment listening",
+];
 
 export function TopicMarquee() {
   return (
@@ -45,6 +59,69 @@ export function TopicMarquee() {
           ))}
         </Marquee>
       ))}
+    </section>
+  );
+}
+
+export function SupportPillars() {
+  return (
+    <section id="pillars" className="py-24">
+      <Container>
+        <SectionHeading
+          eyebrow="What you can talk about"
+          title={
+            <>
+              7 areas where you don&apos;t have to{" "}
+              <span className="italic text-rose">carry it alone.</span>
+            </>
+          }
+          description="From study fatigue and sleep debt to homesickness and failure. Talk to someone who gets it."
+        />
+
+        <div className="mt-14 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          {SUPPORT_PILLARS.map((pillar, i) => (
+            <Reveal
+              key={pillar.id}
+              delay={i * 0.05}
+              className={pillar.isPriority ? "sm:col-span-2 lg:col-span-3" : undefined}
+            >
+              <Link href={`/listeners?topic=${pillar.slug}`} className="group block h-full">
+                <SpotlightCard
+                  className={cn(
+                    "relative flex h-full flex-col justify-between transition-shadow hover:shadow-hover",
+                    pillar.isPriority && "border-rose/30 bg-rose-soft/20 dark:bg-rose-soft/10",
+                  )}
+                >
+                  <div>
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="font-serif text-3xl italic text-rose/80">{pillar.num}</span>
+                      {pillar.badge ? (
+                        <Badge tone="rose">{pillar.badge}</Badge>
+                      ) : (
+                        <span className="flex items-center gap-1 text-xs font-medium text-muted transition group-hover:text-rose">
+                          Find listeners <ArrowRight className="size-3" />
+                        </span>
+                      )}
+                    </div>
+                    <h3 className="mt-4 text-xl font-semibold tracking-tight text-ink transition group-hover:text-rose">
+                      {pillar.title}
+                    </h3>
+                    <p className="mt-1 text-sm font-medium italic text-muted">{pillar.tagline}</p>
+                    <p className="mt-3 text-sm leading-relaxed text-muted">{pillar.description}</p>
+                  </div>
+
+                  <div className="mt-6 border-t border-line/60 pt-4">
+                    <p className="text-xs font-medium text-muted">
+                      <span className="font-semibold text-ink/80">Focus: </span>
+                      {pillar.focus}
+                    </p>
+                  </div>
+                </SpotlightCard>
+              </Link>
+            </Reveal>
+          ))}
+        </div>
+      </Container>
     </section>
   );
 }

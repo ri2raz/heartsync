@@ -8,6 +8,7 @@ import {
   ListenerCta,
   ListenerPreview,
   PricingTeaser,
+  SupportPillars,
   TopicMarquee,
   WhyHeartSync,
 } from "@/components/landing/sections";
@@ -38,6 +39,7 @@ export default async function HomePage() {
     <>
       <Hero signedIn={signedIn} />
       <TopicMarquee />
+      <SupportPillars />
       <HowItWorks />
       <WhyHeartSync />
       <CanAndCannot />

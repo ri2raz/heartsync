@@ -17,32 +17,32 @@ const LISTENERS = [
     title: "BIG_BRO",
     hue: 210,
     languages: "hi,en",
-    topics: "exams,career,family",
-    bio: "Dropped a year for JEE, didn't get the college I wanted, and turned out fine. I know how loud the pressure gets — happy to just listen, or help you think through a Plan B.",
+    topics: "physical-health-energy,academic-pressure-failure,life-beyond-exam",
+    bio: "Dropped a year for JEE. Survived extreme study burnout, 3 AM caffeine crashes, and ruined sleep cycles before finding my balance. Here to listen through physical exhaustion, failure, and life beyond the exam.",
   },
   {
     alias: "Meera",
     title: "BIG_SIS",
     hue: 330,
     languages: "hi,en,mr",
-    topics: "breakups,self-worth,overthinking",
-    bio: "Moved to Pune alone at 21 and went through a messy breakup in my first month. I'm a good listener, a terrible judge, and I'll never tell you to 'just move on'.",
+    topics: "stress-wellbeing,family-pressure-homesick,safe-space-to-talk",
+    bio: "Moved to a new city alone for coaching. Cried every night from homesickness and the heavy guilt of parental sacrifices. I offer a zero-judgment safe space to untangle your anxiety and feel heard.",
   },
   {
     alias: "Kabir",
     title: "BIG_BRO",
     hue: 25,
     languages: "en,hi,pa",
-    topics: "work,new-city,loneliness",
-    bio: "Software engineer, first job in Bengaluru, zero friends for a year. If your city feels too big and your weekends too quiet, let's talk.",
+    topics: "physical-health-energy,loneliness-friendship,stress-wellbeing",
+    bio: "Engineer who spent years running on 3 hours of sleep, zero friends, and severe somatic stress. If your body is exhausted, your hostel room feels lonely, or your energy is at rock bottom, let's talk.",
   },
   {
     alias: "Zoya",
     title: "BIG_SIS",
     hue: 280,
     languages: "en,hi,bn",
-    topics: "family,friendship,self-worth",
-    bio: "Eldest daughter, so I know about expectations. I listen without fixing — unless you want ideas, then I have plenty.",
+    topics: "family-pressure-homesick,academic-pressure-failure,life-beyond-exam",
+    bio: "Eldest daughter bearing family expectations. Stumbled in competitive exams and discovered that self-worth isn't a test percentile. Here to remind you that your life is vastly bigger than the syllabus.",
   },
 ];
 
@@ -83,19 +83,22 @@ async function main() {
       update: {},
       create: { email, alias: l.alias, passwordHash, dateOfBirth: adult, role: "LISTENER" },
     });
+    const profileData = {
+      displayName: l.alias,
+      title: l.title,
+      bio: l.bio,
+      languages: l.languages,
+      topics: l.topics,
+      avatarHue: l.hue,
+      isOnline: true,
+      lastSeenAt: new Date(),
+    };
     await db.listenerProfile.upsert({
       where: { userId: user.id },
-      update: {},
+      update: profileData,
       create: {
         userId: user.id,
-        displayName: l.alias,
-        title: l.title,
-        bio: l.bio,
-        languages: l.languages,
-        topics: l.topics,
-        avatarHue: l.hue,
-        isOnline: true,
-        lastSeenAt: new Date(),
+        ...profileData,
       },
     });
   }

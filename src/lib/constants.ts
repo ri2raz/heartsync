@@ -32,6 +32,15 @@ export const LANGUAGES = {
 export type LanguageCode = keyof typeof LANGUAGES;
 
 export const TOPICS = {
+  // 7 Core Pillars
+  "stress-wellbeing": "Stress and mental well-being",
+  "loneliness-friendship": "Loneliness and friendship",
+  "physical-health-energy": "Physical health and energy",
+  "family-pressure-homesick": "Family pressure and homesickness",
+  "academic-pressure-failure": "Academic pressure and failure",
+  "safe-space-to-talk": "A safe space to talk",
+  "life-beyond-exam": "Life beyond the exam",
+  // Additional topics & backwards compatibility
   exams: "Exam pressure",
   career: "Career confusion",
   breakups: "Breakups",
@@ -44,6 +53,86 @@ export const TOPICS = {
   work: "Work stress",
 } as const;
 export type TopicSlug = keyof typeof TOPICS;
+
+export type SupportPillar = {
+  id: string;
+  num: string;
+  title: string;
+  tagline: string;
+  description: string;
+  slug: string;
+  focus: string;
+  badge?: string;
+  isPriority?: boolean;
+};
+
+export const SUPPORT_PILLARS: readonly SupportPillar[] = [
+  {
+    id: "stress-wellbeing",
+    num: "01",
+    title: "Stress & mental well-being",
+    tagline: "When your thoughts feel too loud and heavy to carry alone.",
+    description: "Constant anxiety spirals, overthinking every outcome, and feeling mentally overloaded. Talk it out without holding back.",
+    slug: "stress-wellbeing",
+    focus: "Overthinking · Anxiety · Mental overload",
+  },
+  {
+    id: "loneliness-friendship",
+    num: "02",
+    title: "Loneliness & friendship",
+    tagline: "Surrounded by hundreds in coaching or hostel, but completely alone.",
+    description: "Drifting apart from old school friends, feeling like no one truly understands what you're going through, or having no one to talk to on weekends.",
+    slug: "loneliness-friendship",
+    focus: "Hostel life · Drifting friends · Social isolation",
+  },
+  {
+    id: "physical-health-energy",
+    num: "03",
+    title: "Physical health & energy",
+    tagline: "Burnout, wrecked sleep cycles, and running on empty.",
+    description: "Study fatigue, irregular sleep, chronic burnout, skipped meals, caffeine crashes, and somatic stress symptoms like tension headaches or tight chests.",
+    slug: "physical-health-energy",
+    badge: "Core focus",
+    focus: "Study fatigue · Sleep debt · Somatic stress · Low energy",
+    isPriority: true,
+  },
+  {
+    id: "family-pressure-homesick",
+    num: "04",
+    title: "Family pressure & homesickness",
+    tagline: "Loving them deeply, but suffocating under their silent expectations.",
+    description: "Missing home-cooked food and family comfort while carrying the weight of financial sacrifices, comparisons with relatives, and parental hopes.",
+    slug: "family-pressure-homesick",
+    focus: "Parental expectations · Homesickness · Comparison",
+  },
+  {
+    id: "academic-pressure-failure",
+    num: "05",
+    title: "Academic pressure & failure",
+    tagline: "When mock test scores drop and the fear of failing paralyzes you.",
+    description: "Backlogs piling up, syllabus overwhelm, drop-year anxiety, and the terrifying feeling that a single exam determines your entire worth.",
+    slug: "academic-pressure-failure",
+    focus: "Mock test scores · Drop years · Fear of failure",
+  },
+  {
+    id: "safe-space-to-talk",
+    num: "06",
+    title: "A safe space to talk",
+    tagline: "Zero judgment, no unsolicited lectures, and completely anonymous.",
+    description: "A private corner where you don't have to pretend you're strong. Vent honestly, cry if you need to, or simply have someone listen quietly.",
+    slug: "safe-space-to-talk",
+    focus: "100% Anonymous · No judgment · Empathetic ears",
+  },
+  {
+    id: "life-beyond-exam",
+    num: "07",
+    title: "Life beyond the exam",
+    tagline: "You are so much bigger than a percentile or an entrance exam rank.",
+    description: "Reconnecting with who you were before the exam took over your identity. Exploring alternative paths, passions, and life's possibilities.",
+    slug: "life-beyond-exam",
+    focus: "Identity · Plan B · Life perspectives",
+  },
+] as const;
 
 /** Length of the free first chat, in minutes. */
 export const FREE_CHAT_MINUTES = 20;
