@@ -30,6 +30,8 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
   return { title: listener ? `${listener.displayName} — listener` : "Listener" };
 }
 
+export const dynamic = "force-dynamic";
+
 export default async function ListenerPage({ params }: Params) {
   const { id } = await params;
   const [listener, user] = await Promise.all([getListener(id), getCurrentUser()]);

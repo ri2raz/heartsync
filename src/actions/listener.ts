@@ -104,6 +104,7 @@ export async function setOnline(online: boolean): Promise<FormState> {
   await db.listenerProfile.update({ where: { userId: user.id }, data: { isOnline: online, lastSeenAt: new Date() } });
   revalidatePath("/listener/dashboard");
   revalidatePath("/listeners");
+  revalidatePath(`/listeners/${user.listenerProfile.id}`);
   return { error: null };
 }
 
