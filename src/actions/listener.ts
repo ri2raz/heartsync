@@ -105,6 +105,27 @@ export async function setOnline(online: boolean): Promise<FormState> {
   revalidatePath("/listener/dashboard");
   revalidatePath("/listeners");
   revalidatePath(`/listeners/${user.listenerProfile.id}`);
+
+  // Notify admin in real time
+  await sendAdminEmail({
+    type: "listener_online",
+    title: online
+      ? `🟢 Listener Online: ${user.listenerProfile.displayName}`
+      : `⚪ Listener Offline: ${user.listenerProfile.displayName}`,
+    senderName: user.listenerProfile.displayName,
+    senderEmail: user.email,
+    subject: online ? `Listener is ONLINE & available for chats` : `Listener changed presence to OFFLINE`,
+    details: `${user.listenerProfile.displayName} changed status to ${online ? "ONLINE (Active)" : "OFFLINE"}.`,
+    metadata: {
+      "Listener ID": user.listenerProfile.id,
+      "Display Name": user.listenerProfile.displayName,
+      "Status": online ? "ONLINE (Available)" : "OFFLINE",
+      "Languages": user.listenerProfile.languages,
+      "Topics": user.listenerProfile.topics,
+      "Time": new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }) + " IST",
+    },
+  }).catch((e) => console.error("[HeartSync] Listener online email error:", e));
+
   return { error: null };
 }
 

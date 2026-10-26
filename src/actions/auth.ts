@@ -6,6 +6,7 @@ import { z } from "zod";
 
 import { endSession, isAdminEmail, startSession } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { sendAdminEmail } from "@/lib/email";
 import { fieldErrorsFrom, keep, str, type FormState } from "@/lib/form";
 import { rateLimit } from "@/lib/rate-limit";
 import { clientIp } from "@/lib/request";
@@ -67,6 +68,24 @@ export async function signup(_prev: FormState, form: FormData): Promise<FormStat
         role: isAdminEmail(email) ? "ADMIN" : "SEEKER",
       },
     });
+
+    // Notify admin at riturajverma2009@gmail.com
+    await sendAdminEmail({
+      type: "signup",
+      title: `🎉 New User Joined: ${alias}`,
+      senderName: alias,
+      senderEmail: email,
+      subject: `New member account created on HeartSync`,
+      details: `A new user registered on HeartSync.\n\nRole: ${user.role}\nEmail: ${email}\nDate of Birth: ${dateOfBirth}`,
+      metadata: {
+        "User ID": user.id,
+        Alias: alias,
+        Email: email,
+        Role: user.role,
+        "Date of Birth": dateOfBirth,
+        "Registered At": new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }) + " IST",
+      },
+    }).catch((e) => console.error("[HeartSync] Signup admin email error:", e));
 
     await startSession(user.id);
     redirect(safeRedirectPath(str(form, "next"), user.role === "ADMIN" ? "/admin" : "/listeners"));

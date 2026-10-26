@@ -74,6 +74,35 @@ async function closeSession(
     await tx.message.create({
       data: { sessionId: session.id, kind: "SYSTEM", body: endMessage(reason) },
     });
+
+    // Notify admin that the live chat concluded
+    db.chatSession
+      .findUnique({
+        where: { id: session.id },
+        select: {
+          seeker: { select: { alias: true } },
+          listener: { select: { displayName: true } },
+        },
+      })
+      .then((info) => {
+        if (info) {
+          sendAdminEmail({
+            type: "chat_ended",
+            title: `🏁 Chat Ended: ${info.seeker.alias} & ${info.listener.displayName}`,
+            subject: `Chat session closed (${reason})`,
+            details: `The chat between ${info.seeker.alias} and ${info.listener.displayName} has ended.\nReason: ${reason}\nMinutes Used: ${minutesUsed(session, endedAt)} min`,
+            metadata: {
+              "Session ID": session.id,
+              "Seeker": info.seeker.alias,
+              "Listener": info.listener.displayName,
+              "End Reason": reason,
+              "Minutes Used": `${minutesUsed(session, endedAt)} min`,
+              "Ended At": endedAt.toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }) + " IST",
+            },
+          }).catch((e) => console.error("[HeartSync] Chat end email error:", e));
+        }
+      })
+      .catch(() => {});
   }
   return true;
 }
@@ -125,7 +154,7 @@ export async function requestSession(seekerId: string, listenerId: string, minut
 
   await reconcileOpenSessionsForSeeker(seekerId);
 
-  return db.$transaction(async (tx) => {
+  const session = await db.$transaction(async (tx) => {
     const listener = await tx.listenerProfile.findUnique({ where: { id: listenerId } });
     if (!listener || !listener.isActive) throw new ServiceError("This listener isn't available.");
     if (listener.userId === seekerId) throw new ServiceError("You can't start a chat with yourself.");
@@ -146,6 +175,40 @@ export async function requestSession(seekerId: string, listenerId: string, minut
     // All chats are 100% free peer support
     return tx.chatSession.create({ data: { seekerId, listenerId, minutes, isFree: true } });
   });
+
+  // Notify admin of new chat request
+  db.chatSession
+    .findUnique({
+      where: { id: session.id },
+      select: {
+        seeker: { select: { alias: true, email: true } },
+        listener: { select: { displayName: true } },
+      },
+    })
+    .then((info) => {
+      if (info) {
+        sendAdminEmail({
+          type: "chat_requested",
+          title: `💬 New Chat Request: ${info.seeker.alias} → ${info.listener.displayName}`,
+          senderName: info.seeker.alias,
+          senderEmail: info.seeker.email,
+          subject: `Chat request initiated (${minutes} mins)`,
+          details: `Seeker "${info.seeker.alias}" requested a ${minutes}-minute peer support session with listener "${info.listener.displayName}".`,
+          metadata: {
+            "Session ID": session.id,
+            "Seeker Alias": info.seeker.alias,
+            "Seeker Email": info.seeker.email,
+            "Listener Name": info.listener.displayName,
+            "Requested Duration": `${minutes} minutes`,
+            "Status": "Waiting for listener to accept",
+            "Time": new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }) + " IST",
+          },
+        }).catch((e) => console.error("[HeartSync] Chat request email error:", e));
+      }
+    })
+    .catch(() => {});
+
+  return session;
 }
 
 async function loadForListener(listenerUserId: string, sessionId: string) {
@@ -183,6 +246,35 @@ export async function acceptSession(listenerUserId: string, sessionId: string) {
       },
     });
   });
+
+  // Notify admin that the chat is now LIVE
+  db.chatSession
+    .findUnique({
+      where: { id: session.id },
+      select: {
+        seeker: { select: { alias: true, email: true } },
+        listener: { select: { displayName: true } },
+      },
+    })
+    .then((info) => {
+      if (info) {
+        sendAdminEmail({
+          type: "chat_active",
+          title: `🔥 Chat Live Now: ${info.seeker.alias} & ${info.listener.displayName}`,
+          senderName: info.listener.displayName,
+          subject: `Live conversation underway (${session.minutes} mins)`,
+          details: `Listener "${info.listener.displayName}" accepted the request from "${info.seeker.alias}". The live session has started.`,
+          metadata: {
+            "Session ID": session.id,
+            "Seeker": info.seeker.alias,
+            "Listener": info.listener.displayName,
+            "Duration": `${session.minutes} minutes`,
+            "Started At": now.toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }) + " IST",
+          },
+        }).catch((e) => console.error("[HeartSync] Chat accept email error:", e));
+      }
+    })
+    .catch(() => {});
 }
 
 export async function declineSession(listenerUserId: string, sessionId: string) {
@@ -332,6 +424,36 @@ export async function rateSession(seekerId: string, sessionId: string, rating: n
       data: { ratingSum: { increment: rating }, ratingCount: { increment: 1 } },
     });
   });
+
+  // Notify admin of rating & feedback
+  db.chatSession
+    .findUnique({
+      where: { id: sessionId },
+      select: {
+        seeker: { select: { alias: true } },
+        listener: { select: { displayName: true } },
+      },
+    })
+    .then((info) => {
+      if (info) {
+        sendAdminEmail({
+          type: "rating",
+          title: `⭐ New Rating: ${rating}/5 Stars for ${info.listener.displayName}`,
+          senderName: info.seeker.alias,
+          subject: `${info.seeker.alias} rated ${info.listener.displayName} (${rating}★)`,
+          details: feedback ? `Review Feedback:\n"${feedback}"` : "No written review provided.",
+          metadata: {
+            "Session ID": sessionId,
+            "Seeker": info.seeker.alias,
+            "Listener": info.listener.displayName,
+            "Rating": `${rating} / 5 Stars`,
+            "Feedback": feedback || "None",
+            "Submitted At": new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }) + " IST",
+          },
+        }).catch((e) => console.error("[HeartSync] Rating email error:", e));
+      }
+    })
+    .catch(() => {});
 }
 
 export async function reportSession(userId: string, sessionId: string, reason: string, details: string | null) {

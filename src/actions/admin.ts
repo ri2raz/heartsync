@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { requireRole } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { sendAdminEmail } from "@/lib/email";
 import type { FormState } from "@/lib/form";
 import { hueFromString } from "@/lib/utils";
 
@@ -31,6 +32,25 @@ export async function approveApplication(applicationId: string): Promise<FormSta
       },
     }),
   ]);
+
+  // Log admin alert
+  sendAdminEmail({
+    type: "application",
+    title: `✅ Listener Approved: ${displayName} (${app.fullName})`,
+    senderName: displayName,
+    senderEmail: app.user.email,
+    subject: `Listener application approved & profile activated`,
+    details: `${app.fullName} is now an active peer listener on HeartSync.`,
+    metadata: {
+      "User ID": app.userId,
+      "Full Name": app.fullName,
+      "Display Name": displayName,
+      "Phone": app.phone,
+      "City": app.city,
+      "Approved At": new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }) + " IST",
+    },
+  }).catch((e) => console.error("[HeartSync] Application approval email error:", e));
+
   revalidatePath("/admin");
   return { success: `${displayName} is now a listener.` };
 }
