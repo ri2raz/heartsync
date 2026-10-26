@@ -94,7 +94,8 @@ export async function login(_prev: FormState, form: FormData): Promise<FormState
     where: {
       OR: [
         { email: normalized },
-        { alias: { equals: identifier, mode: "insensitive" } },
+        { alias: identifier },
+        { alias: normalized },
       ],
     },
   });
