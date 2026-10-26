@@ -411,16 +411,26 @@ export function PricingTeaser() {
     <section className="py-24">
       <Container>
         <SectionHeading
-          eyebrow="Pricing"
+          eyebrow="100% Free"
           title={
             <>
-              Less than a pizza. <span className="italic">Worth a lot more.</span>
+              Community peer support. <span className="italic">Always free.</span>
             </>
           }
-          description="Buy minutes, use them with any listener. Unused minutes from chats that end early go back to your balance."
+          description="We do not charge by the minute or sell subscription packs. HeartSync is powered by verified peers who believe in listening without judgment."
         />
-        <div className="mt-14">
-          <PricingCards compact />
+        <div className="mt-10 rounded-3xl border border-rose/30 bg-rose-soft/20 p-8 text-center sm:p-12 shadow-soft">
+          <p className="font-serif text-3xl font-medium sm:text-4xl text-ink">
+            No credit cards, no top-ups, no paywalls.
+          </p>
+          <p className="mx-auto mt-3 max-w-xl text-muted text-sm sm:text-base leading-relaxed">
+            Connect anonymously with verified Big Bros and Big Sisters for 20, 40, or 60 minute chats whenever you need someone to talk to.
+          </p>
+          <div className="mt-8 flex justify-center gap-4">
+            <ButtonLink href="/listeners" variant="rose" size="lg">
+              Talk to someone now
+            </ButtonLink>
+          </div>
         </div>
       </Container>
     </section>

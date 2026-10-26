@@ -9,7 +9,7 @@ const COLUMNS = [
     title: "Talk",
     links: [
       { href: "/listeners", label: "Find a listener" },
-      { href: "/pricing", label: "Pricing" },
+      { href: "/pricing", label: "100% Free Support" },
       { href: "/signup", label: "Start free chat" },
     ],
   },
@@ -24,6 +24,7 @@ const COLUMNS = [
     title: "Trust",
     links: [
       { href: "/safety", label: "Safety" },
+      { href: "/contact", label: "Contact Us" },
       { href: "/help", label: "Crisis helplines" },
       { href: "/terms", label: "Terms" },
       { href: "/privacy", label: "Privacy" },

@@ -158,3 +158,16 @@ model Payment {
 
   @@index([userId])
 }
+
+model ContactMessage {
+  id        String   @id @default(cuid())
+  name      String
+  email     String
+  subject   String
+  message   String
+  status    String   @default("UNREAD") // UNREAD | RESOLVED
+  createdAt DateTime @default(now())
+
+  @@index([status, createdAt])
+}
+

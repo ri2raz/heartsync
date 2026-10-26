@@ -4,13 +4,13 @@ import type { ChatSession, Prisma } from "@prisma/client";
 
 import {
   CHAT_LENGTHS,
-  FREE_CHAT_MINUTES,
   LISTENER_TITLES,
   MAX_MESSAGE_LENGTH,
   REPORT_REASONS,
   REQUEST_TIMEOUT_MS,
 } from "./constants";
 import { db } from "./db";
+import { sendAdminEmail } from "./email";
 import { rateLimit } from "./rate-limit";
 import { CRISIS_SYSTEM_MESSAGE, moderateMessage } from "./safety";
 import {
@@ -143,23 +143,8 @@ export async function requestSession(seekerId: string, listenerId: string, minut
     });
     if (existing) throw new ServiceError("You already have a chat open. Finish or cancel it first.");
 
-    let isFree = false;
-    if (minutes === FREE_CHAT_MINUTES) {
-      const claimed = await tx.user.updateMany({
-        where: { id: seekerId, freeChatUsed: false },
-        data: { freeChatUsed: true },
-      });
-      isFree = claimed.count === 1;
-    }
-    if (!isFree) {
-      const charged = await tx.user.updateMany({
-        where: { id: seekerId, minutesBalance: { gte: minutes } },
-        data: { minutesBalance: { decrement: minutes } },
-      });
-      if (charged.count === 0) throw new ServiceError("Not enough minutes. Top up to start this chat.");
-    }
-
-    return tx.chatSession.create({ data: { seekerId, listenerId, minutes, isFree } });
+    // All chats are 100% free peer support
+    return tx.chatSession.create({ data: { seekerId, listenerId, minutes, isFree: true } });
   });
 }
 
@@ -259,6 +244,17 @@ export async function postMessage(userId: string, sessionId: string, rawBody: st
       });
       if (!session.crisisFlaggedAt) {
         await tx.chatSession.update({ where: { id: sessionId }, data: { crisisFlaggedAt: now } });
+        // Asynchronously notify admin of crisis
+        sendAdminEmail({
+          type: "crisis",
+          title: `URGENT: Crisis Detected in Chat ${sessionId.slice(0, 8)}`,
+          subject: "Immediate Safety Team Attention Required",
+          details: `A message triggered crisis detection:\n"${body.slice(0, 300)}"`,
+          metadata: {
+            "Session ID": sessionId,
+            "Flagged At": now.toISOString(),
+          },
+        }).catch((e) => console.error("[HeartSync] Failed to dispatch crisis email:", e));
       }
       if (!lastCrisis || now.getTime() - lastCrisis.createdAt.getTime() > CRISIS_REPEAT_MS) {
         await tx.message.create({ data: { sessionId, kind: "CRISIS", body: CRISIS_SYSTEM_MESSAGE } });
@@ -350,6 +346,19 @@ export async function reportSession(userId: string, sessionId: string, reason: s
     create: { sessionId, reporterId: userId, reason, details: details?.slice(0, 1000) || null },
     update: { reason, details: details?.slice(0, 1000) || null, status: "OPEN" },
   });
+
+  // Notify admin of safety report
+  sendAdminEmail({
+    type: "report",
+    title: `Safety Report: ${reason}`,
+    subject: `Report in chat ${sessionId.slice(0, 8)}`,
+    details: details || "No details provided",
+    metadata: {
+      "Session ID": sessionId,
+      "Reporter ID": userId,
+      Reason: reason,
+    },
+  }).catch((e) => console.error("[HeartSync] Failed to dispatch report email:", e));
 
   // Reporting always ends a live chat so nobody has to keep talking to someone they flagged.
   if (session.status === "ACTIVE") {

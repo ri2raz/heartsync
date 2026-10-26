@@ -1,8 +1,26 @@
-import { AlertTriangle, Flag, UserCheck, Users } from "lucide-react";
+import {
+  AlertTriangle,
+  Clock,
+  Flag,
+  Mail,
+  MessageCircle,
+  Trash2,
+  UserCheck,
+  Users,
+} from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import { approveApplication, rejectApplication, resolveReport, setListenerActive, suspendUser } from "@/actions/admin";
+import {
+  approveApplication,
+  deleteContactMessage,
+  rejectApplication,
+  resolveContactMessage,
+  resolveReport,
+  setListenerActive,
+  suspendUser,
+  unsuspendUser,
+} from "@/actions/admin";
 import { ActionButton } from "@/components/admin/action-button";
 import { Badge } from "@/components/ui/badge";
 import { Container, PageHeader } from "@/components/ui/section";
@@ -13,7 +31,7 @@ import { fmtDate, fmtDateTime } from "@/lib/format";
 import { isListenerOnline } from "@/lib/session-rules";
 import { splitList } from "@/lib/utils";
 
-export const metadata: Metadata = { title: "Safety desk", robots: { index: false } };
+export const metadata: Metadata = { title: "Admin & Safety Desk", robots: { index: false } };
 export const dynamic = "force-dynamic";
 
 function labelList(value: string, map: Record<string, string>) {
@@ -22,11 +40,21 @@ function labelList(value: string, map: Record<string, string>) {
     .join(", ");
 }
 
-function SectionTitle({ icon: Icon, title, count }: { icon: React.ComponentType<{ className?: string }>; title: string; count: number }) {
+function SectionTitle({
+  icon: Icon,
+  title,
+  count,
+  tone = "neutral",
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  title: string;
+  count?: number;
+  tone?: "rose" | "neutral" | "danger" | "amber";
+}) {
   return (
-    <h2 className="flex items-center gap-2 text-lg font-semibold">
+    <h2 className="flex items-center gap-2 text-xl font-semibold">
       <Icon className="size-5 text-rose" /> {title}
-      <Badge tone={count ? "rose" : "neutral"}>{count}</Badge>
+      {count !== undefined && <Badge tone={count ? tone : "neutral"}>{count}</Badge>}
     </h2>
   );
 }
@@ -35,14 +63,34 @@ export default async function AdminPage() {
   await requireRole("ADMIN", "/admin");
   const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
-  const [applications, reports, crisis, listeners] = await Promise.all([
-    db.listenerApplication.findMany({ where: { status: "PENDING" }, orderBy: { createdAt: "asc" }, include: { user: true } }),
+  const [
+    applications,
+    reports,
+    crisis,
+    listeners,
+    contactMessages,
+    recentSessions,
+    allUsers,
+    totalMinutesHeard,
+  ] = await Promise.all([
+    db.listenerApplication.findMany({
+      where: { status: "PENDING" },
+      orderBy: { createdAt: "asc" },
+      include: { user: true },
+    }),
     db.report.findMany({
       where: { status: "OPEN" },
       orderBy: { createdAt: "asc" },
       include: {
         reporter: { select: { alias: true } },
-        session: { select: { id: true, seekerId: true, seeker: { select: { alias: true } }, listener: { select: { displayName: true, userId: true } } } },
+        session: {
+          select: {
+            id: true,
+            seekerId: true,
+            seeker: { select: { alias: true } },
+            listener: { select: { displayName: true, userId: true } },
+          },
+        },
       },
     }),
     db.chatSession.findMany({
@@ -50,68 +98,246 @@ export default async function AdminPage() {
       orderBy: { crisisFlaggedAt: "desc" },
       include: { seeker: { select: { alias: true } }, listener: { select: { displayName: true } } },
     }),
-    db.listenerProfile.findMany({ orderBy: { createdAt: "desc" }, include: { user: { select: { email: true, isSuspended: true } } } }),
+    db.listenerProfile.findMany({
+      orderBy: { createdAt: "desc" },
+      include: { user: { select: { email: true, isSuspended: true } } },
+    }),
+    db.contactMessage.findMany({
+      orderBy: { createdAt: "desc" },
+      take: 50,
+    }),
+    db.chatSession.findMany({
+      orderBy: { createdAt: "desc" },
+      take: 20,
+      include: {
+        seeker: { select: { alias: true } },
+        listener: { select: { displayName: true } },
+      },
+    }),
+    db.user.findMany({
+      orderBy: { createdAt: "desc" },
+      take: 50,
+      select: {
+        id: true,
+        email: true,
+        alias: true,
+        role: true,
+        isSuspended: true,
+        createdAt: true,
+      },
+    }),
+    db.listenerProfile.aggregate({
+      _sum: { minutesHeard: true },
+    }),
   ]);
+
+  const activeSessions = recentSessions.filter((s) => s.status === "ACTIVE");
+  const unreadContactCount = contactMessages.filter((m) => m.status === "UNREAD").length;
 
   return (
     <Container className="max-w-6xl">
       <PageHeader
-        eyebrow="Safety desk"
-        title={<>Keep it <span className="italic text-rose">safe and kind.</span></>}
-        description="Crisis flags first, then reports, then applications. Transcripts are only opened for flagged or reported chats."
+        eyebrow="HeartSync Operations"
+        title={
+          <>
+            Admin & <span className="italic text-rose">Safety Hub.</span>
+          </>
+        }
+        description="Comprehensive dashboard to manage incoming contact inquiries, listener verifications, safety reports, active chat monitoring, and platform users."
       />
 
-      <div className="space-y-12">
-        <section>
-          <SectionTitle icon={AlertTriangle} title="Crisis flags (last 7 days)" count={crisis.length} />
+      {/* KPI Overview Cards */}
+      <div className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+        <div className="rounded-2xl border border-line bg-surface p-4 shadow-soft">
+          <p className="flex items-center gap-1.5 text-xs font-medium text-muted">
+            <Mail className="size-4 text-rose" /> Inquiries
+          </p>
+          <p className="mt-2 text-2xl font-bold font-serif">{unreadContactCount}</p>
+          <span className="text-[11px] text-muted">{unreadContactCount ? "Needs reply" : "All clear"}</span>
+        </div>
+
+        <div className="rounded-2xl border border-line bg-surface p-4 shadow-soft">
+          <p className="flex items-center gap-1.5 text-xs font-medium text-muted">
+            <AlertTriangle className="size-4 text-danger" /> Crisis Flags
+          </p>
+          <p className="mt-2 text-2xl font-bold font-serif text-danger">{crisis.length}</p>
+          <span className="text-[11px] text-muted">Last 7 days</span>
+        </div>
+
+        <div className="rounded-2xl border border-line bg-surface p-4 shadow-soft">
+          <p className="flex items-center gap-1.5 text-xs font-medium text-muted">
+            <Flag className="size-4 text-amber-500" /> Open Reports
+          </p>
+          <p className="mt-2 text-2xl font-bold font-serif">{reports.length}</p>
+          <span className="text-[11px] text-muted">Awaiting review</span>
+        </div>
+
+        <div className="rounded-2xl border border-line bg-surface p-4 shadow-soft">
+          <p className="flex items-center gap-1.5 text-xs font-medium text-muted">
+            <UserCheck className="size-4 text-rose" /> Applications
+          </p>
+          <p className="mt-2 text-2xl font-bold font-serif">{applications.length}</p>
+          <span className="text-[11px] text-muted">Pending ID check</span>
+        </div>
+
+        <div className="rounded-2xl border border-line bg-surface p-4 shadow-soft">
+          <p className="flex items-center gap-1.5 text-xs font-medium text-muted">
+            <MessageCircle className="size-4 text-rose" /> Active Chats
+          </p>
+          <p className="mt-2 text-2xl font-bold font-serif text-rose">{activeSessions.length}</p>
+          <span className="text-[11px] text-muted">Live now</span>
+        </div>
+
+        <div className="rounded-2xl border border-line bg-surface p-4 shadow-soft">
+          <p className="flex items-center gap-1.5 text-xs font-medium text-muted">
+            <Clock className="size-4 text-rose" /> Total Heard
+          </p>
+          <p className="mt-2 text-2xl font-bold font-serif">
+            {(totalMinutesHeard._sum.minutesHeard ?? 0).toLocaleString("en-IN")}m
+          </p>
+          <span className="text-[11px] text-muted">Free support</span>
+        </div>
+      </div>
+
+      <div className="mt-12 space-y-14">
+        {/* Contact Messages Section */}
+        <section id="contact-inquiries">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <SectionTitle icon={Mail} title="Contact Inquiries" count={unreadContactCount} tone="rose" />
+            <span className="text-xs text-muted">Notifications are sent to riturajverma2009@gmail.com</span>
+          </div>
+
+          {contactMessages.length ? (
+            <ul className="mt-4 space-y-3">
+              {contactMessages.map((msg) => (
+                <li
+                  key={msg.id}
+                  className={`rounded-3xl border bg-surface p-6 shadow-soft transition ${
+                    msg.status === "UNREAD" ? "border-rose/40 ring-1 ring-rose/20" : "border-line opacity-85"
+                  }`}
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-4">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg font-semibold text-ink">{msg.name}</span>
+                        <a
+                          href={`mailto:${msg.email}?subject=Re: ${encodeURIComponent(msg.subject)}`}
+                          className="text-xs text-rose hover:underline"
+                        >
+                          {msg.email}
+                        </a>
+                        <Badge tone={msg.status === "UNREAD" ? "rose" : "neutral"}>
+                          {msg.status}
+                        </Badge>
+                      </div>
+                      <p className="mt-1 text-sm font-medium text-ink/90">
+                        Subject: <span className="text-ink">{msg.subject}</span>
+                      </p>
+                      <p className="text-xs text-muted">Received {fmtDateTime(msg.createdAt)}</p>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                      <a
+                        href={`mailto:${msg.email}?subject=Re: ${encodeURIComponent(msg.subject)}`}
+                        className="inline-flex h-9 items-center rounded-full bg-ink px-4 text-xs font-medium text-bg hover:opacity-90 transition"
+                      >
+                        Reply via Email
+                      </a>
+                      {msg.status === "UNREAD" ? (
+                        <ActionButton action={resolveContactMessage.bind(null, msg.id)}>
+                          Mark Resolved
+                        </ActionButton>
+                      ) : null}
+                      <ActionButton
+                        action={deleteContactMessage.bind(null, msg.id)}
+                        variant="ghost"
+                        confirm="Permanently delete this inquiry?"
+                      >
+                        <Trash2 className="size-3.5 text-muted hover:text-danger" />
+                      </ActionButton>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 rounded-2xl bg-surface-2 p-4 text-sm leading-relaxed text-ink/90 whitespace-pre-wrap border border-line/60">
+                    {msg.message}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-4 text-sm text-muted">No contact inquiries yet.</p>
+          )}
+        </section>
+
+        {/* Crisis Flags Section */}
+        <section id="crisis-flags">
+          <SectionTitle icon={AlertTriangle} title="Crisis Flags (Last 7 Days)" count={crisis.length} tone="danger" />
           {crisis.length ? (
-            <ul className="mt-4 divide-y divide-line overflow-hidden rounded-3xl border border-danger/25 bg-surface shadow-soft">
+            <ul className="mt-4 divide-y divide-line overflow-hidden rounded-3xl border border-danger/30 bg-surface shadow-soft">
               {crisis.map((s) => (
                 <li key={s.id} className="flex flex-wrap items-center gap-4 px-5 py-4">
-                  <Badge tone="danger">Crisis</Badge>
+                  <Badge tone="danger">Crisis Detected</Badge>
                   <p className="flex-1">
-                    <span className="font-medium">{s.seeker.alias}</span> with {s.listener.displayName}
+                    <span className="font-medium text-ink">{s.seeker.alias}</span> talking with{" "}
+                    <span className="font-medium text-ink">{s.listener.displayName}</span>
                     <span className="block text-xs text-muted">
-                      Flagged {s.crisisFlaggedAt ? fmtDateTime(s.crisisFlaggedAt) : ""} · {s.status.toLowerCase()}
+                      Flagged {s.crisisFlaggedAt ? fmtDateTime(s.crisisFlaggedAt) : ""} · Status: {s.status.toLowerCase()}
                     </span>
                   </p>
-                  <Link href={`/admin/sessions/${s.id}`} className="text-sm font-medium text-rose underline-offset-2 hover:underline">
-                    Open transcript
+                  <Link
+                    href={`/admin/sessions/${s.id}`}
+                    className="inline-flex items-center gap-1.5 rounded-full bg-danger-soft px-4 py-2 text-xs font-semibold text-danger hover:bg-danger/20 transition"
+                  >
+                    Open Live Transcript
                   </Link>
                 </li>
               ))}
             </ul>
           ) : (
-            <p className="mt-4 text-sm text-muted">No crisis flags this week.</p>
+            <p className="mt-4 text-sm text-muted">No crisis flags this week. Helplines are continuously presented to seekers.</p>
           )}
         </section>
 
-        <section>
-          <SectionTitle icon={Flag} title="Open reports" count={reports.length} />
+        {/* Open Reports Section */}
+        <section id="reports">
+          <SectionTitle icon={Flag} title="Open User Reports" count={reports.length} tone="amber" />
           {reports.length ? (
             <ul className="mt-4 space-y-3">
               {reports.map((r) => {
-                const reportedUserId = r.reporterId === r.session.seekerId ? r.session.listener.userId : r.session.seekerId;
-                const reportedName = r.reporterId === r.session.seekerId ? r.session.listener.displayName : r.session.seeker.alias;
+                const reportedUserId =
+                  r.reporterId === r.session.seekerId ? r.session.listener.userId : r.session.seekerId;
+                const reportedName =
+                  r.reporterId === r.session.seekerId ? r.session.listener.displayName : r.session.seeker.alias;
                 return (
                   <li key={r.id} className="rounded-3xl border border-line bg-surface p-5 shadow-soft">
                     <div className="flex flex-wrap items-start gap-4">
                       <div className="min-w-0 flex-1">
-                        <p className="font-medium">{r.reason}</p>
-                        <p className="text-sm text-muted">
-                          {r.reporter.alias} reported {reportedName} · {fmtDateTime(r.createdAt)}
+                        <div className="flex items-center gap-2">
+                          <p className="font-semibold text-base text-ink">{r.reason}</p>
+                          <Badge tone="amber">Pending Resolution</Badge>
+                        </div>
+                        <p className="mt-1 text-sm text-muted">
+                          Reported by <span className="font-medium text-ink">{r.reporter.alias}</span> against{" "}
+                          <span className="font-medium text-ink">{reportedName}</span> · {fmtDateTime(r.createdAt)}
                         </p>
-                        {r.details ? <p className="mt-2 whitespace-pre-line text-sm">{r.details}</p> : null}
+                        {r.details ? (
+                          <p className="mt-3 rounded-2xl bg-surface-2 p-3 text-sm text-ink/90 whitespace-pre-line border border-line">
+                            {r.details}
+                          </p>
+                        ) : null}
                       </div>
                       <div className="flex flex-wrap gap-2">
-                        <Link href={`/admin/sessions/${r.session.id}`} className="inline-flex h-9 items-center rounded-full px-4 text-sm font-medium ring-1 ring-line hover:bg-surface-2">
-                          Transcript
+                        <Link
+                          href={`/admin/sessions/${r.session.id}`}
+                          className="inline-flex h-9 items-center rounded-full px-4 text-xs font-medium ring-1 ring-line hover:bg-surface-2 transition"
+                        >
+                          View Transcript
                         </Link>
-                        <ActionButton action={resolveReport.bind(null, r.id)}>Resolve</ActionButton>
+                        <ActionButton action={resolveReport.bind(null, r.id)}>Resolve Report</ActionButton>
                         <ActionButton
                           action={suspendUser.bind(null, reportedUserId)}
                           variant="danger"
-                          confirm={`Suspend ${reportedName}? They will be logged out and blocked.`}
+                          confirm={`Suspend ${reportedName}? Their account will be deactivated.`}
                         >
                           Suspend {reportedName}
                         </ActionButton>
@@ -122,82 +348,148 @@ export default async function AdminPage() {
               })}
             </ul>
           ) : (
-            <p className="mt-4 text-sm text-muted">No open reports.</p>
+            <p className="mt-4 text-sm text-muted">No open moderation reports.</p>
           )}
         </section>
 
-        <section>
-          <SectionTitle icon={UserCheck} title="Listener applications" count={applications.length} />
+        {/* Listener Applications Section */}
+        <section id="applications">
+          <SectionTitle icon={UserCheck} title="Listener Applications" count={applications.length} tone="rose" />
           <p className="mt-1 text-sm text-muted">
-            Approve only after DigiLocker ID check, police verification and training are complete.
+            Carefully verify legal identity and check readiness before approving new peer listeners.
           </p>
           {applications.length ? (
-            <ul className="mt-4 space-y-3">
+            <ul className="mt-4 space-y-4">
               {applications.map((a) => (
-                <li key={a.id} className="rounded-3xl border border-line bg-surface p-5 shadow-soft">
+                <li key={a.id} className="rounded-3xl border border-line bg-surface p-6 shadow-soft">
                   <div className="flex flex-wrap items-start justify-between gap-4">
                     <div>
-                      <p className="text-lg font-semibold">
-                        {a.fullName} <span className="text-sm font-normal text-muted">· {LISTENER_TITLES[a.title as keyof typeof LISTENER_TITLES]} · {a.city}</span>
+                      <p className="text-xl font-bold font-serif text-ink">
+                        {a.fullName}{" "}
+                        <span className="text-sm font-normal text-muted font-sans">
+                          · {LISTENER_TITLES[a.title as keyof typeof LISTENER_TITLES]} · {a.city}
+                        </span>
                       </p>
-                      <p className="text-sm text-muted">
-                        {a.user.email} · {a.phone} · applied {fmtDate(a.createdAt)}
+                      <p className="mt-1 text-sm text-muted">
+                        <a href={`mailto:${a.user.email}`} className="text-rose hover:underline">
+                          {a.user.email}
+                        </a>{" "}
+                        · Phone: {a.phone} · Applied {fmtDate(a.createdAt)}
                       </p>
                     </div>
                     <div className="flex gap-2">
                       <ActionButton action={rejectApplication.bind(null, a.id)} confirm="Reject this application?">
                         Reject
                       </ActionButton>
-                      <ActionButton action={approveApplication.bind(null, a.id)} variant="rose" confirm="Verification and training complete? Approve as listener.">
-                        Approve
+                      <ActionButton
+                        action={approveApplication.bind(null, a.id)}
+                        variant="rose"
+                        confirm="Verification complete? Approve as verified listener."
+                      >
+                        Approve Listener
                       </ActionButton>
                     </div>
                   </div>
                   <dl className="mt-4 grid gap-4 text-sm md:grid-cols-2">
-                    <div>
+                    <div className="rounded-2xl bg-surface-2 p-3.5 border border-line">
                       <dt className="text-xs font-semibold uppercase tracking-wide text-muted">Languages</dt>
-                      <dd>{labelList(a.languages, LANGUAGES)}</dd>
+                      <dd className="mt-1 font-medium">{labelList(a.languages, LANGUAGES)}</dd>
                     </div>
-                    <div>
+                    <div className="rounded-2xl bg-surface-2 p-3.5 border border-line">
                       <dt className="text-xs font-semibold uppercase tracking-wide text-muted">Topics</dt>
-                      <dd>{labelList(a.topics, TOPICS)}</dd>
+                      <dd className="mt-1 font-medium">{labelList(a.topics, TOPICS)}</dd>
                     </div>
-                    <div>
-                      <dt className="text-xs font-semibold uppercase tracking-wide text-muted">About (public bio)</dt>
-                      <dd className="whitespace-pre-line">{a.about}</dd>
+                    <div className="rounded-2xl bg-surface-2 p-3.5 border border-line">
+                      <dt className="text-xs font-semibold uppercase tracking-wide text-muted">Public Bio</dt>
+                      <dd className="mt-1 whitespace-pre-line text-ink/90">{a.about}</dd>
                     </div>
-                    <div>
+                    <div className="rounded-2xl bg-surface-2 p-3.5 border border-line">
                       <dt className="text-xs font-semibold uppercase tracking-wide text-muted">Motivation</dt>
-                      <dd className="whitespace-pre-line">{a.motivation}</dd>
+                      <dd className="mt-1 whitespace-pre-line text-ink/90">{a.motivation}</dd>
                     </div>
                   </dl>
                 </li>
               ))}
             </ul>
           ) : (
-            <p className="mt-4 text-sm text-muted">No pending applications.</p>
+            <p className="mt-4 text-sm text-muted">No pending listener applications.</p>
           )}
         </section>
 
-        <section>
-          <SectionTitle icon={Users} title="Listeners" count={listeners.length} />
+        {/* Live & Recent Chat Sessions Section */}
+        <section id="sessions">
+          <SectionTitle icon={MessageCircle} title="Recent Chat Sessions & Monitoring" count={recentSessions.length} />
+          {recentSessions.length ? (
+            <div className="mt-4 overflow-x-auto rounded-3xl border border-line bg-surface shadow-soft">
+              <table className="w-full min-w-[700px] text-left text-sm">
+                <thead className="border-b border-line bg-surface-2 text-xs uppercase tracking-wide text-muted">
+                  <tr>
+                    <th className="px-5 py-3 font-semibold">Session ID</th>
+                    <th className="px-5 py-3 font-semibold">Seeker</th>
+                    <th className="px-5 py-3 font-semibold">Listener</th>
+                    <th className="px-5 py-3 font-semibold">Status</th>
+                    <th className="px-5 py-3 font-semibold">Duration</th>
+                    <th className="px-5 py-3 font-semibold">Started</th>
+                    <th className="px-5 py-3 font-semibold text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-line">
+                  {recentSessions.map((s) => (
+                    <tr key={s.id} className="hover:bg-surface-2/50 transition">
+                      <td className="px-5 py-3 font-mono text-xs text-muted">{s.id.slice(0, 8)}</td>
+                      <td className="px-5 py-3 font-medium text-ink">{s.seeker.alias}</td>
+                      <td className="px-5 py-3 text-ink">{s.listener.displayName}</td>
+                      <td className="px-5 py-3">
+                        {s.status === "ACTIVE" ? (
+                          <Badge tone="green">● Live Now</Badge>
+                        ) : s.status === "REQUESTED" ? (
+                          <Badge tone="amber">Requested</Badge>
+                        ) : s.status === "ENDED" ? (
+                          <Badge tone="neutral">Ended</Badge>
+                        ) : (
+                          <Badge tone="neutral">{s.status}</Badge>
+                        )}
+                      </td>
+                      <td className="px-5 py-3">{s.minutes}m (Free)</td>
+                      <td className="px-5 py-3 text-xs text-muted">{fmtDateTime(s.createdAt)}</td>
+                      <td className="px-5 py-3 text-right">
+                        <Link
+                          href={`/admin/sessions/${s.id}`}
+                          className="text-xs font-semibold text-rose hover:underline"
+                        >
+                          Transcript
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className="mt-4 text-sm text-muted">No chat sessions recorded yet.</p>
+          )}
+        </section>
+
+        {/* Listeners Management Section */}
+        <section id="listeners">
+          <SectionTitle icon={Users} title="Active Listeners Roster" count={listeners.length} />
           {listeners.length ? (
             <div className="mt-4 overflow-x-auto rounded-3xl border border-line bg-surface shadow-soft">
               <table className="w-full min-w-[640px] text-left text-sm">
-                <thead className="border-b border-line text-xs uppercase tracking-wide text-muted">
+                <thead className="border-b border-line bg-surface-2 text-xs uppercase tracking-wide text-muted">
                   <tr>
                     <th className="px-5 py-3 font-semibold">Listener</th>
                     <th className="px-5 py-3 font-semibold">Status</th>
                     <th className="px-5 py-3 font-semibold">Rating</th>
-                    <th className="px-5 py-3 font-semibold">Minutes</th>
-                    <th className="px-5 py-3 font-semibold" />
+                    <th className="px-5 py-3 font-semibold">Minutes Heard</th>
+                    <th className="px-5 py-3 font-semibold text-right">Moderation</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-line">
                   {listeners.map((l) => (
-                    <tr key={l.id}>
+                    <tr key={l.id} className="hover:bg-surface-2/40 transition">
                       <td className="px-5 py-3">
-                        <p className="font-medium">{l.displayName}</p>
+                        <p className="font-semibold text-ink">{l.displayName}</p>
                         <p className="text-xs text-muted">{l.user.email}</p>
                       </td>
                       <td className="px-5 py-3">
@@ -206,20 +498,27 @@ export default async function AdminPage() {
                         ) : !l.isActive ? (
                           <Badge tone="amber">Paused</Badge>
                         ) : isListenerOnline(l) ? (
-                          <Badge tone="green">Online</Badge>
+                          <Badge tone="green">● Online</Badge>
                         ) : (
                           <Badge>Offline</Badge>
                         )}
                       </td>
-                      <td className="px-5 py-3">{l.ratingCount ? `${(l.ratingSum / l.ratingCount).toFixed(1)} (${l.ratingCount})` : "—"}</td>
-                      <td className="px-5 py-3">{l.minutesHeard}</td>
+                      <td className="px-5 py-3">
+                        {l.ratingCount ? `${(l.ratingSum / l.ratingCount).toFixed(1)} (${l.ratingCount})` : "—"}
+                      </td>
+                      <td className="px-5 py-3 font-medium">{l.minutesHeard}m</td>
                       <td className="px-5 py-3 text-right">
                         {l.user.isSuspended ? null : l.isActive ? (
-                          <ActionButton action={setListenerActive.bind(null, l.id, false)} confirm={`Pause ${l.displayName}?`}>
+                          <ActionButton
+                            action={setListenerActive.bind(null, l.id, false)}
+                            confirm={`Pause listener profile for ${l.displayName}?`}
+                          >
                             Pause
                           </ActionButton>
                         ) : (
-                          <ActionButton action={setListenerActive.bind(null, l.id, true)}>Re-activate</ActionButton>
+                          <ActionButton action={setListenerActive.bind(null, l.id, true)}>
+                            Re-activate
+                          </ActionButton>
                         )}
                       </td>
                     </tr>
@@ -228,7 +527,66 @@ export default async function AdminPage() {
               </table>
             </div>
           ) : (
-            <p className="mt-4 text-sm text-muted">No listeners yet.</p>
+            <p className="mt-4 text-sm text-muted">No listeners approved yet.</p>
+          )}
+        </section>
+
+        {/* User Directory Section */}
+        <section id="users">
+          <SectionTitle icon={Users} title="User Directory & Access Control" count={allUsers.length} />
+          {allUsers.length ? (
+            <div className="mt-4 overflow-x-auto rounded-3xl border border-line bg-surface shadow-soft">
+              <table className="w-full min-w-[640px] text-left text-sm">
+                <thead className="border-b border-line bg-surface-2 text-xs uppercase tracking-wide text-muted">
+                  <tr>
+                    <th className="px-5 py-3 font-semibold">User Alias</th>
+                    <th className="px-5 py-3 font-semibold">Email</th>
+                    <th className="px-5 py-3 font-semibold">Role</th>
+                    <th className="px-5 py-3 font-semibold">Joined</th>
+                    <th className="px-5 py-3 font-semibold">Status</th>
+                    <th className="px-5 py-3 font-semibold text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-line">
+                  {allUsers.map((u) => (
+                    <tr key={u.id} className="hover:bg-surface-2/40 transition">
+                      <td className="px-5 py-3 font-medium text-ink">{u.alias}</td>
+                      <td className="px-5 py-3 text-muted text-xs font-mono">{u.email}</td>
+                      <td className="px-5 py-3">
+                        <Badge tone={u.role === "ADMIN" ? "rose" : u.role === "LISTENER" ? "green" : "neutral"}>
+                          {u.role}
+                        </Badge>
+                      </td>
+                      <td className="px-5 py-3 text-xs text-muted">{fmtDate(u.createdAt)}</td>
+                      <td className="px-5 py-3">
+                        {u.isSuspended ? (
+                          <Badge tone="danger">Suspended</Badge>
+                        ) : (
+                          <Badge tone="green">Active</Badge>
+                        )}
+                      </td>
+                      <td className="px-5 py-3 text-right">
+                        {u.isSuspended ? (
+                          <ActionButton action={unsuspendUser.bind(null, u.id)}>
+                            Unsuspend
+                          </ActionButton>
+                        ) : u.role !== "ADMIN" ? (
+                          <ActionButton
+                            action={suspendUser.bind(null, u.id)}
+                            variant="danger"
+                            confirm={`Suspend account for ${u.alias}?`}
+                          >
+                            Suspend
+                          </ActionButton>
+                        ) : null}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className="mt-4 text-sm text-muted">No users found.</p>
           )}
         </section>
       </div>

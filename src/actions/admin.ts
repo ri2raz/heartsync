@@ -71,3 +71,28 @@ export async function suspendUser(userId: string): Promise<FormState> {
   revalidatePath("/admin");
   return { success: "User suspended." };
 }
+
+export async function unsuspendUser(userId: string): Promise<FormState> {
+  await requireRole("ADMIN");
+  await db.user.update({ where: { id: userId }, data: { isSuspended: false } });
+  revalidatePath("/admin");
+  return { success: "User unsuspended." };
+}
+
+export async function resolveContactMessage(messageId: string): Promise<FormState> {
+  await requireRole("ADMIN");
+  await db.contactMessage.update({
+    where: { id: messageId },
+    data: { status: "RESOLVED" },
+  });
+  revalidatePath("/admin");
+  return { success: "Inquiry marked as resolved." };
+}
+
+export async function deleteContactMessage(messageId: string): Promise<FormState> {
+  await requireRole("ADMIN");
+  await db.contactMessage.delete({ where: { id: messageId } });
+  revalidatePath("/admin");
+  return { success: "Message deleted." };
+}
+

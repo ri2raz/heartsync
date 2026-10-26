@@ -6,6 +6,7 @@ import { z } from "zod";
 import { requireUser } from "@/lib/auth";
 import { LANGUAGES, LISTENER_TITLES, TOPICS } from "@/lib/constants";
 import { db } from "@/lib/db";
+import { sendAdminEmail } from "@/lib/email";
 import { fieldErrorsFrom, keep, str, type FormState } from "@/lib/form";
 
 const languageCodes = Object.keys(LANGUAGES) as [string, ...string[]];
@@ -73,6 +74,23 @@ export async function applyAsListener(_prev: FormState, form: FormData): Promise
     where: { userId: user.id },
     create: { userId: user.id, ...data },
     update: data,
+  });
+
+  // Notify admin
+  await sendAdminEmail({
+    type: "application",
+    title: `New Listener Application: ${data.fullName}`,
+    senderName: data.fullName,
+    senderEmail: user.email,
+    subject: `Application for ${data.title} (${data.city})`,
+    details: `About:\n${data.about}\n\nMotivation:\n${data.motivation}`,
+    metadata: {
+      Phone: data.phone,
+      City: data.city,
+      Role: data.title,
+      Languages: data.languages,
+      Topics: data.topics,
+    },
   });
 
   revalidatePath("/become-a-listener");
