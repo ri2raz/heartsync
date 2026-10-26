@@ -1,6 +1,16 @@
 import "server-only";
 
-export const ADMIN_NOTIFICATION_EMAIL = process.env.ADMIN_NOTIFICATION_EMAIL || "riturajverma2009@gmail.com";
+const rawAdminEmail = process.env.ADMIN_NOTIFICATION_EMAIL?.trim();
+const rawResendKey = process.env.RESEND_API_KEY?.trim();
+
+export const resendApiKey =
+  (rawResendKey && rawResendKey.startsWith("re_") ? rawResendKey : undefined) ||
+  (rawAdminEmail && rawAdminEmail.startsWith("re_") ? rawAdminEmail : undefined);
+
+export const ADMIN_NOTIFICATION_EMAIL =
+  rawAdminEmail && !rawAdminEmail.startsWith("re_")
+    ? rawAdminEmail
+    : "riturajverma2009@gmail.com";
 
 export type EmailPayload = {
   type: "contact" | "application" | "report" | "crisis";
@@ -89,14 +99,14 @@ View Admin Panel: ${siteUrl}/admin
   // Log alert to server output
   console.log(`[HeartSync Notification Email -> ${recipient}]:\nSubject: ${emailSubject}\n${textBody}`);
 
-  // Send via Resend if RESEND_API_KEY is configured
-  if (process.env.RESEND_API_KEY) {
+  // Send via Resend if resendApiKey is configured
+  if (resendApiKey) {
     try {
       const fromEmail = process.env.EMAIL_FROM || "HeartSync Desk <onboarding@resend.dev>";
       const res = await fetch("https://api.resend.com/emails", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+          Authorization: `Bearer ${resendApiKey}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({

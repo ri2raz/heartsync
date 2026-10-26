@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { db } from "@/lib/db";
-import { sendAdminEmail } from "@/lib/email";
+import { ADMIN_NOTIFICATION_EMAIL, resendApiKey, sendAdminEmail } from "@/lib/email";
 
 export const dynamic = "force-dynamic";
 
@@ -17,9 +17,7 @@ export async function GET(request: NextRequest) {
     errorMsg = err instanceof Error ? err.message : String(err);
   }
 
-  const resendKey = process.env.RESEND_API_KEY?.trim();
   let emailTestResult = null;
-
   if (request.nextUrl.searchParams.get("testEmail") === "1") {
     emailTestResult = await sendAdminEmail({
       type: "contact",
@@ -35,9 +33,9 @@ export async function GET(request: NextRequest) {
     status: dbOk ? "ok" : "error",
     dbConnected: dbOk,
     userCount,
-    hasResendKey: Boolean(resendKey),
-    resendKeyPrefix: resendKey ? resendKey.slice(0, 6) + "..." : null,
-    adminNotificationEmail: process.env.ADMIN_NOTIFICATION_EMAIL || "riturajverma2009@gmail.com",
+    hasResendKey: Boolean(resendApiKey),
+    resendKeyPrefix: resendApiKey ? resendApiKey.slice(0, 7) + "..." : null,
+    adminNotificationEmail: ADMIN_NOTIFICATION_EMAIL,
     emailTestResult,
     error: errorMsg,
   });
