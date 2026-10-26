@@ -75,6 +75,14 @@ export async function signup(_prev: FormState, form: FormData): Promise<FormStat
       throw error;
     }
     console.error("[HeartSync] Signup error:", error);
+    const msg = error instanceof Error ? error.message : String(error);
+    if (msg.includes("DATABASE_URL") || msg.includes("PrismaClientInitializationError") || !process.env.DATABASE_URL) {
+      return {
+        error:
+          "Database connection is missing. Please add DATABASE_URL in Vercel Project Settings → Environment Variables and redeploy.",
+        values,
+      };
+    }
     return { error: "Could not create account right now. Please try again.", values };
   }
 }
@@ -126,6 +134,14 @@ export async function login(_prev: FormState, form: FormData): Promise<FormState
       throw error;
     }
     console.error("[HeartSync] Login error:", error);
+    const msg = error instanceof Error ? error.message : String(error);
+    if (msg.includes("DATABASE_URL") || msg.includes("PrismaClientInitializationError") || !process.env.DATABASE_URL) {
+      return {
+        error:
+          "Database connection is missing. Please add DATABASE_URL in Vercel Project Settings → Environment Variables and redeploy.",
+        values,
+      };
+    }
     return { error: "An unexpected error occurred during login. Please try again.", values };
   }
 }
