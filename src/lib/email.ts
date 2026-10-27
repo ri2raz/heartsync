@@ -176,6 +176,102 @@ View Admin Panel: ${siteUrl}/admin
   return { success: true, message: "Logged to admin inbox (Add RESEND_API_KEY in Vercel to dispatch live SMTP)" };
 }
 
+export async function sendOtpEmail({
+  email,
+  otp,
+  alias,
+}: {
+  email: string;
+  otp: string;
+  alias?: string;
+}): Promise<{ success: boolean; message?: string }> {
+  const greeting = alias ? `Hi ${alias}` : "Hello";
+  const emailSubject = `${otp} is your HeartSync verification code`;
+
+  const textBody = `
+${greeting},
+
+Welcome to HeartSync. Here is your 6-digit verification code:
+
+  ${otp}
+
+This code will expire in 10 minutes.
+If you didn't create an account on HeartSync, you can safely ignore this email.
+
+Warm regards,
+HeartSync Team
+https://heartsync-navy.vercel.app
+`.trim();
+
+  const htmlBody = `
+<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 520px; margin: 0 auto; padding: 32px 24px; border: 1px solid #f0f0f0; border-radius: 16px; background-color: #ffffff;">
+  <div style="text-align: center; margin-bottom: 24px;">
+    <h1 style="color: #0f172a; margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -0.5px;">HeartSync</h1>
+    <p style="color: #64748b; margin: 4px 0 0 0; font-size: 13px;">Talk to a verified big bro or big sis</p>
+  </div>
+
+  <div style="border-top: 1px solid #f1f5f9; padding-top: 24px;">
+    <p style="font-size: 16px; color: #1e293b; margin: 0 0 16px 0; font-weight: 500;">${escapeHtml(greeting)},</p>
+    <p style="font-size: 14px; line-height: 1.6; color: #475569; margin: 0 0 24px 0;">
+      Thank you for joining HeartSync. To verify your email address and activate your account, please enter this 6-digit confirmation code:
+    </p>
+
+    <div style="text-align: center; margin: 28px 0;">
+      <div style="display: inline-block; background-color: #fff1f2; border: 1.5px dashed #f43f5e; border-radius: 12px; padding: 16px 32px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 32px; font-weight: 700; letter-spacing: 8px; color: #e11d48;">
+        ${otp}
+      </div>
+      <p style="margin: 10px 0 0 0; font-size: 12px; color: #94a3b8;">Valid for 10 minutes · Do not share this code</p>
+    </div>
+
+    <p style="font-size: 13px; line-height: 1.5; color: #64748b; margin: 24px 0 0 0;">
+      If you did not request this code or create an account, you can safely ignore this email. Someone may have typed your address by mistake.
+    </p>
+  </div>
+
+  <div style="margin-top: 32px; padding-top: 20px; border-top: 1px solid #f1f5f9; text-align: center; font-size: 12px; color: #94a3b8;">
+    HeartSync · A safe, anonymous space for young adults
+  </div>
+</div>
+`.trim();
+
+  // Always log OTP for instant local development/testing visibility
+  console.log(`[HeartSync OTP] 🔑 Verification code for ${email} is: ${otp}`);
+
+  if (resendApiKey) {
+    try {
+      const fromEmail = process.env.EMAIL_FROM || "HeartSync Desk <onboarding@resend.dev>";
+      const res = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${resendApiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          from: fromEmail,
+          to: [email],
+          subject: emailSubject,
+          text: textBody,
+          html: htmlBody,
+        }),
+      });
+
+      if (!res.ok) {
+        const errText = await res.text();
+        console.error("[HeartSync] Resend API error sending OTP:", errText);
+        return { success: false, message: errText };
+      }
+
+      console.log(`[HeartSync] Verification OTP successfully dispatched to ${email} via Resend.`);
+      return { success: true };
+    } catch (error) {
+      console.error("[HeartSync] Error sending OTP via Resend:", error);
+      return { success: false, message: String(error) };
+    }
+  }
+
+  return { success: true, message: "OTP logged to server output (RESEND_API_KEY optional for local dev)" };
+}
+
 function escapeHtml(str: string): string {
   return str
     .replace(/&/g, "&amp;")

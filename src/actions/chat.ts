@@ -15,6 +15,7 @@ import {
   ServiceError,
 } from "@/lib/chat-service";
 import { str, type FormState } from "@/lib/form";
+import { clientIp } from "@/lib/request";
 
 async function run(fn: () => Promise<unknown>): Promise<FormState> {
   try {
@@ -34,7 +35,8 @@ export async function startChat(_prev: FormState, form: FormData): Promise<FormS
 
   let sessionId: string;
   try {
-    sessionId = (await requestSession(user.id, listenerId, minutes)).id;
+    const ip = await clientIp();
+    sessionId = (await requestSession(user.id, listenerId, minutes, ip)).id;
   } catch (err) {
     if (err instanceof ServiceError) return { error: err.message };
     throw err;
@@ -55,7 +57,8 @@ export async function endActiveChat(sessionId: string): Promise<FormState> {
 export async function acceptChat(sessionId: string): Promise<FormState> {
   const user = await requireUser();
   if (user.role !== "LISTENER") return { error: "Only listeners can accept chats." };
-  const result = await run(() => acceptSession(user.id, sessionId));
+  const ip = await clientIp();
+  const result = await run(() => acceptSession(user.id, sessionId, ip));
   if (result.error) return result;
   redirect(`/chat/${sessionId}`);
 }
@@ -80,8 +83,9 @@ export async function rateChat(_prev: FormState, form: FormData): Promise<FormSt
 export async function reportChat(_prev: FormState, form: FormData): Promise<FormState> {
   const user = await requireUser();
   const sessionId = str(form, "sessionId");
+  const ip = await clientIp();
   const result = await run(() =>
-    reportSession(user.id, sessionId, str(form, "reason"), str(form, "details").trim() || null),
+    reportSession(user.id, sessionId, str(form, "reason"), str(form, "details").trim() || null, ip),
   );
   return result.error ? result : { success: "Report sent. Our safety team reviews every report, usually within 24 hours." };
 }

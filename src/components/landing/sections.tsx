@@ -468,6 +468,7 @@ export type ListenerCardData = {
   topics: string;
   avatarHue: number;
   isOnline: boolean;
+  isVerified?: boolean;
   ratingSum: number;
   ratingCount: number;
 };
@@ -490,7 +491,9 @@ export function ListenerCard({ listener, className }: { listener: ListenerCardDa
         <div className="mt-4 min-w-0">
           <p className="flex items-center gap-1.5 text-lg font-semibold tracking-tight">
             <span className="truncate">{listener.displayName}</span>
-            <BadgeCheck className="size-4 shrink-0 text-rose" aria-label="Verified" />
+            {listener.isVerified ? (
+              <BadgeCheck className="size-4 shrink-0 text-rose" aria-label="Verified Listener" />
+            ) : null}
           </p>
           <p className="mt-0.5 flex items-center gap-2 text-sm text-muted">
             <OnlineDot online={listener.isOnline} />

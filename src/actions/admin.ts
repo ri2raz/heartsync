@@ -28,6 +28,7 @@ export async function approveApplication(applicationId: string): Promise<FormSta
         topics: app.topics,
         avatarHue: hueFromString(app.userId),
         isOnline: true,
+        isVerified: false,
         lastSeenAt: new Date(),
       },
     }),
@@ -81,6 +82,25 @@ export async function setListenerActive(listenerId: string, active: boolean): Pr
   revalidatePath("/admin");
   revalidatePath("/listeners");
   return { success: active ? "Listener re-activated." : "Listener paused." };
+}
+
+export async function toggleListenerVerification(listenerId: string, verify: boolean): Promise<FormState> {
+  await requireRole("ADMIN");
+  const listener = await db.listenerProfile.update({
+    where: { id: listenerId },
+    data: {
+      isVerified: verify,
+      verifiedAt: verify ? new Date() : null,
+    },
+  });
+  revalidatePath("/admin");
+  revalidatePath("/listeners");
+  revalidatePath(`/listeners/${listenerId}`);
+  return {
+    success: verify
+      ? `Verification badge manually granted to ${listener.displayName}.`
+      : `Verification badge revoked from ${listener.displayName}.`,
+  };
 }
 
 export async function suspendUser(userId: string): Promise<FormState> {

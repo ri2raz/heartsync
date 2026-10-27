@@ -33,9 +33,9 @@ export type LanguageCode = keyof typeof LANGUAGES;
 
 export const TOPICS = {
   // 7 Core Pillars
+  "physical-health-energy": "Physical health and energy",
   "stress-wellbeing": "Stress and mental well-being",
   "loneliness-friendship": "Loneliness and friendship",
-  "physical-health-energy": "Physical health and energy",
   "family-pressure-homesick": "Family pressure and homesickness",
   "academic-pressure-failure": "Academic pressure and failure",
   "safe-space-to-talk": "A safe space to talk",
@@ -68,8 +68,19 @@ export type SupportPillar = {
 
 export const SUPPORT_PILLARS: readonly SupportPillar[] = [
   {
-    id: "stress-wellbeing",
+    id: "physical-health-energy",
     num: "01",
+    title: "Physical health & energy",
+    tagline: "Burnout, wrecked sleep cycles, and running on empty.",
+    description: "Study fatigue, irregular sleep, chronic burnout, skipped meals, caffeine crashes, and somatic stress symptoms like tension headaches or tight chests.",
+    slug: "physical-health-energy",
+    badge: "Core focus",
+    focus: "Study fatigue · Sleep debt · Somatic stress · Low energy",
+    isPriority: true,
+  },
+  {
+    id: "stress-wellbeing",
+    num: "02",
     title: "Stress & mental well-being",
     tagline: "When your thoughts feel too loud and heavy to carry alone.",
     description: "Constant anxiety spirals, overthinking every outcome, and feeling mentally overloaded. Talk it out without holding back.",
@@ -78,23 +89,12 @@ export const SUPPORT_PILLARS: readonly SupportPillar[] = [
   },
   {
     id: "loneliness-friendship",
-    num: "02",
+    num: "03",
     title: "Loneliness & friendship",
     tagline: "Surrounded by hundreds in coaching or hostel, but completely alone.",
     description: "Drifting apart from old school friends, feeling like no one truly understands what you're going through, or having no one to talk to on weekends.",
     slug: "loneliness-friendship",
     focus: "Hostel life · Drifting friends · Social isolation",
-  },
-  {
-    id: "physical-health-energy",
-    num: "03",
-    title: "Physical health & energy",
-    tagline: "Burnout, wrecked sleep cycles, and running on empty.",
-    description: "Study fatigue, irregular sleep, chronic burnout, skipped meals, caffeine crashes, and somatic stress symptoms like tension headaches or tight chests.",
-    slug: "physical-health-energy",
-    badge: "Core focus",
-    focus: "Study fatigue · Sleep debt · Somatic stress · Low energy",
-    isPriority: true,
   },
   {
     id: "family-pressure-homesick",

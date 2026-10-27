@@ -180,7 +180,7 @@ export function ChatRoom({ initial }: { initial: SessionView }) {
         <div className="min-w-0 flex-1">
           <p className="truncate font-semibold">{counterpart.name}</p>
           <p className="flex items-center gap-1.5 text-xs text-muted">
-            {view.role === "seeker" ? <ShieldCheck className="size-3.5 text-rose" aria-hidden /> : null}
+            {view.role === "seeker" && view.listener.isVerified ? <ShieldCheck className="size-3.5 text-rose" aria-hidden /> : null}
             {counterpart.sub} · {statusLabel(view.status)}
           </p>
         </div>

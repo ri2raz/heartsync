@@ -1,5 +1,6 @@
 import {
   AlertTriangle,
+  BadgeCheck,
   Clock,
   Flag,
   Mail,
@@ -19,6 +20,7 @@ import {
   resolveReport,
   setListenerActive,
   suspendUser,
+  toggleListenerVerification,
   unsuspendUser,
 } from "@/actions/admin";
 import { ActionButton } from "@/components/admin/action-button";
@@ -64,7 +66,7 @@ export default async function AdminPage() {
   const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
   let applications: Awaited<ReturnType<typeof db.listenerApplication.findMany<{ include: { user: true } }>>> = [];
-  let reports: Awaited<ReturnType<typeof db.report.findMany<{ include: { reporter: { select: { alias: true } }; session: { select: { id: true; seekerId: true; seeker: { select: { alias: true } }; listener: { select: { displayName: true; userId: true } } } } } }>>> = [];
+  let reports: Awaited<ReturnType<typeof db.report.findMany<{ include: { reporter: { select: { alias: true } }; session: { select: { id: true; seekerId: true; seekerIp: true; listenerIp: true; seeker: { select: { alias: true } }; listener: { select: { displayName: true; userId: true } } } } } }>>> = [];
   let crisis: Awaited<ReturnType<typeof db.chatSession.findMany<{ include: { seeker: { select: { alias: true } }; listener: { select: { displayName: true } } } }>>> = [];
   let listeners: Awaited<ReturnType<typeof db.listenerProfile.findMany<{ include: { user: { select: { email: true; isSuspended: true } } } }>>> = [];
   let contactMessages: Awaited<ReturnType<typeof db.contactMessage.findMany>> = [];
@@ -88,6 +90,8 @@ export default async function AdminPage() {
             select: {
               id: true,
               seekerId: true,
+              seekerIp: true,
+              listenerIp: true,
               seeker: { select: { alias: true } },
               listener: { select: { displayName: true, userId: true } },
             },
@@ -291,8 +295,10 @@ export default async function AdminPage() {
                 <li key={s.id} className="flex flex-wrap items-center gap-4 px-5 py-4">
                   <Badge tone="danger">Crisis Detected</Badge>
                   <p className="flex-1">
-                    <span className="font-medium text-ink">{s.seeker.alias}</span> talking with{" "}
-                    <span className="font-medium text-ink">{s.listener.displayName}</span>
+                    <span className="font-medium text-ink">{s.seeker.alias}</span>{" "}
+                    <span className="text-xs text-muted font-mono">({s.seekerIp || "IP: N/A"})</span> talking with{" "}
+                    <span className="font-medium text-ink">{s.listener.displayName}</span>{" "}
+                    <span className="text-xs text-muted font-mono">({s.listenerIp || "IP: N/A"})</span>
                     <span className="block text-xs text-muted">
                       Flagged {s.crisisFlaggedAt ? fmtDateTime(s.crisisFlaggedAt) : ""} · Status: {s.status.toLowerCase()}
                     </span>
@@ -332,6 +338,9 @@ export default async function AdminPage() {
                         <p className="mt-1 text-sm text-muted">
                           Reported by <span className="font-medium text-ink">{r.reporter.alias}</span> against{" "}
                           <span className="font-medium text-ink">{reportedName}</span> · {fmtDateTime(r.createdAt)}
+                          <span className="block text-xs text-muted font-mono mt-0.5">
+                            Seeker IP: {r.session.seekerIp || "Unavailable"} · Listener IP: {r.session.listenerIp || "Unavailable"}
+                          </span>
                         </p>
                         {r.details ? (
                           <p className="mt-3 rounded-2xl bg-surface-2 p-3 text-sm text-ink/90 whitespace-pre-line border border-line">
@@ -450,8 +459,14 @@ export default async function AdminPage() {
                   {recentSessions.map((s) => (
                     <tr key={s.id} className="hover:bg-surface-2/50 transition">
                       <td className="px-5 py-3 font-mono text-xs text-muted">{s.id.slice(0, 8)}</td>
-                      <td className="px-5 py-3 font-medium text-ink">{s.seeker.alias}</td>
-                      <td className="px-5 py-3 text-ink">{s.listener.displayName}</td>
+                      <td className="px-5 py-3">
+                        <span className="font-medium text-ink">{s.seeker.alias}</span>
+                        <span className="block font-mono text-[11px] text-muted">{s.seekerIp || "IP: N/A"}</span>
+                      </td>
+                      <td className="px-5 py-3">
+                        <span className="text-ink">{s.listener.displayName}</span>
+                        <span className="block font-mono text-[11px] text-muted">{s.listenerIp || "IP: N/A"}</span>
+                      </td>
                       <td className="px-5 py-3">
                         {s.status === "ACTIVE" ? (
                           <Badge tone="green">● Live Now</Badge>
@@ -492,6 +507,7 @@ export default async function AdminPage() {
                 <thead className="border-b border-line bg-surface-2 text-xs uppercase tracking-wide text-muted">
                   <tr>
                     <th className="px-5 py-3 font-semibold">Listener</th>
+                    <th className="px-5 py-3 font-semibold">Verification</th>
                     <th className="px-5 py-3 font-semibold">Status</th>
                     <th className="px-5 py-3 font-semibold">Rating</th>
                     <th className="px-5 py-3 font-semibold">Minutes Heard</th>
@@ -502,8 +518,22 @@ export default async function AdminPage() {
                   {listeners.map((l) => (
                     <tr key={l.id} className="hover:bg-surface-2/40 transition">
                       <td className="px-5 py-3">
-                        <p className="font-semibold text-ink">{l.displayName}</p>
+                        <p className="font-semibold text-ink flex items-center gap-1.5">
+                          {l.displayName}
+                          {l.isVerified ? (
+                            <BadgeCheck className="size-4 text-rose" aria-label="Verified" />
+                          ) : null}
+                        </p>
                         <p className="text-xs text-muted">{l.user.email}</p>
+                      </td>
+                      <td className="px-5 py-3">
+                        {l.isVerified ? (
+                          <Badge tone="green" className="gap-1 font-medium">
+                            <BadgeCheck className="size-3 text-emerald-600" /> Verified
+                          </Badge>
+                        ) : (
+                          <Badge tone="amber">Unverified</Badge>
+                        )}
                       </td>
                       <td className="px-5 py-3">
                         {l.user.isSuspended ? (
@@ -521,18 +551,36 @@ export default async function AdminPage() {
                       </td>
                       <td className="px-5 py-3 font-medium">{l.minutesHeard}m</td>
                       <td className="px-5 py-3 text-right">
-                        {l.user.isSuspended ? null : l.isActive ? (
-                          <ActionButton
-                            action={setListenerActive.bind(null, l.id, false)}
-                            confirm={`Pause listener profile for ${l.displayName}?`}
-                          >
-                            Pause
-                          </ActionButton>
-                        ) : (
-                          <ActionButton action={setListenerActive.bind(null, l.id, true)}>
-                            Re-activate
-                          </ActionButton>
-                        )}
+                        <div className="flex items-center justify-end gap-2">
+                          {l.isVerified ? (
+                            <ActionButton
+                              action={toggleListenerVerification.bind(null, l.id, false)}
+                              confirm={`Revoke verified badge from ${l.displayName}?`}
+                            >
+                              Revoke Badge
+                            </ActionButton>
+                          ) : (
+                            <ActionButton
+                              action={toggleListenerVerification.bind(null, l.id, true)}
+                              variant="rose"
+                              confirm={`Manually verify ID & credentials and grant verified badge to ${l.displayName}?`}
+                            >
+                              Verify Badge
+                            </ActionButton>
+                          )}
+                          {l.user.isSuspended ? null : l.isActive ? (
+                            <ActionButton
+                              action={setListenerActive.bind(null, l.id, false)}
+                              confirm={`Pause listener profile for ${l.displayName}?`}
+                            >
+                              Pause
+                            </ActionButton>
+                          ) : (
+                            <ActionButton action={setListenerActive.bind(null, l.id, true)}>
+                              Re-activate
+                            </ActionButton>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}

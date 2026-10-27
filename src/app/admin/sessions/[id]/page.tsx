@@ -45,6 +45,8 @@ export default async function TranscriptPage({ params }: { params: Promise<{ id:
       <div className="mb-6 flex flex-wrap gap-2">
         {session.crisisFlaggedAt ? <Badge tone="danger">Crisis flagged</Badge> : null}
         {session.reports.length ? <Badge tone="amber">{session.reports.length} report(s)</Badge> : null}
+        <Badge tone="neutral">Seeker IP: {session.seekerIp || "Unavailable"}</Badge>
+        <Badge tone="neutral">Listener IP: {session.listenerIp || "Unavailable"}</Badge>
       </div>
       <ol className="space-y-2 rounded-3xl border border-line bg-surface p-5 shadow-soft">
         {session.messages.map((m) => {

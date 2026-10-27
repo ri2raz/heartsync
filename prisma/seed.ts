@@ -54,34 +54,34 @@ async function main() {
 
   await db.user.upsert({
     where: { email: "ritu123@heartsync.local" },
-    update: { passwordHash: rituPasswordHash, role: "ADMIN", alias: "ritu123" },
-    create: { email: "ritu123@heartsync.local", alias: "ritu123", passwordHash: rituPasswordHash, dateOfBirth: adult, role: "ADMIN" },
+    update: { passwordHash: rituPasswordHash, role: "ADMIN", alias: "ritu123", emailVerified: true },
+    create: { email: "ritu123@heartsync.local", alias: "ritu123", passwordHash: rituPasswordHash, dateOfBirth: adult, role: "ADMIN", emailVerified: true },
   });
 
   await db.user.upsert({
     where: { email: "riturajverma2009@gmail.com" },
-    update: { passwordHash: rituPasswordHash, role: "ADMIN", alias: "ritu123" },
-    create: { email: "riturajverma2009@gmail.com", alias: "ritu123", passwordHash: rituPasswordHash, dateOfBirth: adult, role: "ADMIN" },
+    update: { passwordHash: rituPasswordHash, role: "ADMIN", alias: "ritu123", emailVerified: true },
+    create: { email: "riturajverma2009@gmail.com", alias: "ritu123", passwordHash: rituPasswordHash, dateOfBirth: adult, role: "ADMIN", emailVerified: true },
   });
 
   await db.user.upsert({
     where: { email: "admin@heartsync.local" },
-    update: {},
-    create: { email: "admin@heartsync.local", alias: "Safety Team", passwordHash, dateOfBirth: adult, role: "ADMIN" },
+    update: { emailVerified: true },
+    create: { email: "admin@heartsync.local", alias: "Safety Team", passwordHash, dateOfBirth: adult, role: "ADMIN", emailVerified: true },
   });
 
   await db.user.upsert({
     where: { email: "seeker@heartsync.local" },
-    update: {},
-    create: { email: "seeker@heartsync.local", alias: "Sunny", passwordHash, dateOfBirth: adult, minutesBalance: 60 },
+    update: { emailVerified: true },
+    create: { email: "seeker@heartsync.local", alias: "Sunny", passwordHash, dateOfBirth: adult, minutesBalance: 60, emailVerified: true },
   });
 
   for (const l of LISTENERS) {
     const email = `${l.alias.toLowerCase()}@heartsync.local`;
     const user = await db.user.upsert({
       where: { email },
-      update: {},
-      create: { email, alias: l.alias, passwordHash, dateOfBirth: adult, role: "LISTENER" },
+      update: { emailVerified: true },
+      create: { email, alias: l.alias, passwordHash, dateOfBirth: adult, role: "LISTENER", emailVerified: true },
     });
     const profileData = {
       displayName: l.alias,
@@ -91,6 +91,8 @@ async function main() {
       topics: l.topics,
       avatarHue: l.hue,
       isOnline: true,
+      isVerified: true,
+      verifiedAt: new Date(),
       lastSeenAt: new Date(),
     };
     await db.listenerProfile.upsert({

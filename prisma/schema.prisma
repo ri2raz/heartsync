@@ -24,6 +24,7 @@ model User {
   minutesBalance  Int      @default(0)
   freeChatUsed    Boolean  @default(false)
   isSuspended     Boolean  @default(false)
+  emailVerified   Boolean  @default(false)
   createdAt       DateTime @default(now())
 
   listenerProfile ListenerProfile?
@@ -32,6 +33,17 @@ model User {
   messages        Message[]
   reports         Report[]
   payments        Payment[]
+}
+
+model EmailVerificationOtp {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  otp       String
+  expiresAt DateTime
+  attempts  Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([email])
 }
 
 model ListenerProfile {
@@ -51,6 +63,9 @@ model ListenerProfile {
   /// Updated by the listener dashboard and chat polling. Online = isOnline and seen recently.
   lastSeenAt    DateTime?
   isActive      Boolean  @default(true)
+  /// Only true after admin manually verifies listener ID / credentials
+  isVerified    Boolean  @default(false)
+  verifiedAt    DateTime?
   ratingSum     Int      @default(0)
   ratingCount   Int      @default(0)
   minutesHeard  Int      @default(0)
@@ -59,6 +74,7 @@ model ListenerProfile {
   sessions      ChatSession[]
 
   @@index([isActive, isOnline])
+  @@index([isVerified])
 }
 
 model ListenerApplication {
@@ -102,6 +118,8 @@ model ChatSession {
   crisisFlaggedAt DateTime?
   rating         Int?
   feedback       String?
+  seekerIp       String?
+  listenerIp     String?
 
   messages       Message[]
   reports        Report[]

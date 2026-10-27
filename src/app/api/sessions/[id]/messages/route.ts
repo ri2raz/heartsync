@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 import { getCurrentUser } from "@/lib/auth";
 import { postMessage } from "@/lib/chat-service";
-import { isSameOrigin } from "@/lib/request";
+import { clientIp, isSameOrigin } from "@/lib/request";
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   if (!isSameOrigin(request)) return NextResponse.json({ error: "Forbidden." }, { status: 403 });
@@ -15,6 +15,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }
 
   const { id } = await params;
-  const result = await postMessage(user.id, id, payload.body);
+  const ip = await clientIp();
+  const result = await postMessage(user.id, id, payload.body, ip);
   return NextResponse.json(result, { status: result.ok ? 201 : 422 });
 }

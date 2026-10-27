@@ -62,11 +62,22 @@ export default async function ListenerPage({ params }: Params) {
             <div>
               <h1 className="flex items-center gap-2 font-serif text-5xl leading-none tracking-tight">
                 {listener.displayName}
-                <BadgeCheck className="size-6 text-rose" aria-label="Verified" />
+                {listener.isVerified ? (
+                  <BadgeCheck className="size-6 text-rose" aria-label="Verified Listener" />
+                ) : null}
               </h1>
-              <p className="mt-2 flex items-center gap-2 text-muted">
+              <div className="mt-2 flex flex-wrap items-center gap-2 text-muted">
                 <OnlineDot online={online} /> {title} · {online ? "Online now" : "Offline"}
-              </p>
+                {listener.isVerified ? (
+                  <Badge tone="rose" className="gap-1 ml-1 text-xs py-0.5">
+                    <BadgeCheck className="size-3" /> ID & Police Verified
+                  </Badge>
+                ) : (
+                  <Badge tone="neutral" className="ml-1 text-xs py-0.5">
+                    Verification Pending
+                  </Badge>
+                )}
+              </div>
             </div>
           </div>
 

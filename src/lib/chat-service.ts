@@ -149,7 +149,7 @@ async function reconcileOpenSessionsForSeeker(seekerId: string) {
   for (const s of open) await reconcileSession(s.id);
 }
 
-export async function requestSession(seekerId: string, listenerId: string, minutes: number) {
+export async function requestSession(seekerId: string, listenerId: string, minutes: number, seekerIp?: string) {
   if (!(CHAT_LENGTHS as readonly number[]).includes(minutes)) throw new ServiceError("Pick a valid chat length.");
 
   await reconcileOpenSessionsForSeeker(seekerId);
@@ -173,7 +173,15 @@ export async function requestSession(seekerId: string, listenerId: string, minut
     if (existing) throw new ServiceError("You already have a chat open. Finish or cancel it first.");
 
     // All chats are 100% free peer support
-    return tx.chatSession.create({ data: { seekerId, listenerId, minutes, isFree: true } });
+    return tx.chatSession.create({
+      data: {
+        seekerId,
+        listenerId,
+        minutes,
+        isFree: true,
+        seekerIp: seekerIp || null,
+      },
+    });
   });
 
   // Notify admin of new chat request
@@ -218,7 +226,7 @@ async function loadForListener(listenerUserId: string, sessionId: string) {
   return { session, profile };
 }
 
-export async function acceptSession(listenerUserId: string, sessionId: string) {
+export async function acceptSession(listenerUserId: string, sessionId: string, listenerIp?: string) {
   const { session, profile } = await loadForListener(listenerUserId, sessionId);
   if (session.status !== "REQUESTED") throw new ServiceError("This request is no longer waiting.");
 
@@ -232,7 +240,11 @@ export async function acceptSession(listenerUserId: string, sessionId: string) {
   await db.$transaction(async (tx) => {
     const { count } = await tx.chatSession.updateMany({
       where: { id: session.id, status: "REQUESTED" },
-      data: { status: "ACTIVE", startedAt: now },
+      data: {
+        status: "ACTIVE",
+        startedAt: now,
+        ...(listenerIp ? { listenerIp } : {}),
+      },
     });
     if (count === 0) throw new ServiceError("This request is no longer waiting.");
     const title = LISTENER_TITLES[profile.title as keyof typeof LISTENER_TITLES] ?? "Listener";
@@ -309,7 +321,12 @@ export async function endChat(userId: string, sessionId: string) {
 
 export type PostMessageResult = { ok: true } | { ok: false; error: string };
 
-export async function postMessage(userId: string, sessionId: string, rawBody: string): Promise<PostMessageResult> {
+export async function postMessage(
+  userId: string,
+  sessionId: string,
+  rawBody: string,
+  senderIp?: string,
+): Promise<PostMessageResult> {
   const body = rawBody.trim();
   if (!body) return { ok: false, error: "Message is empty." };
   if (body.length > MAX_MESSAGE_LENGTH) return { ok: false, error: `Keep messages under ${MAX_MESSAGE_LENGTH} characters.` };
@@ -320,6 +337,15 @@ export async function postMessage(userId: string, sessionId: string, rawBody: st
   const role = await participantRole(userId, session);
   if (!role) return { ok: false, error: "Chat not found." };
   if (session.status !== "ACTIVE") return { ok: false, error: "This chat isn't active." };
+
+  // Opportunistically backfill IP if not captured yet
+  if (senderIp) {
+    if (role === "seeker" && !session.seekerIp) {
+      await db.chatSession.update({ where: { id: sessionId }, data: { seekerIp: senderIp } }).catch(() => {});
+    } else if (role === "listener" && !session.listenerIp) {
+      await db.chatSession.update({ where: { id: sessionId }, data: { listenerIp: senderIp } }).catch(() => {});
+    }
+  }
 
   const result = moderateMessage(body);
   const now = new Date();
@@ -336,7 +362,18 @@ export async function postMessage(userId: string, sessionId: string, rawBody: st
       });
       if (!session.crisisFlaggedAt) {
         await tx.chatSession.update({ where: { id: sessionId }, data: { crisisFlaggedAt: now } });
-        // Asynchronously notify admin of crisis
+
+        const sessionInfo = await tx.chatSession.findUnique({
+          where: { id: sessionId },
+          select: {
+            seekerIp: true,
+            listenerIp: true,
+            seeker: { select: { alias: true, email: true } },
+            listener: { select: { displayName: true } },
+          },
+        });
+
+        // Asynchronously notify admin of crisis with Seeker & Listener IP addresses
         sendAdminEmail({
           type: "crisis",
           title: `URGENT: Crisis Detected in Chat ${sessionId.slice(0, 8)}`,
@@ -345,6 +382,11 @@ export async function postMessage(userId: string, sessionId: string, rawBody: st
           metadata: {
             "Session ID": sessionId,
             "Flagged At": now.toISOString(),
+            "Seeker Alias": sessionInfo?.seeker.alias || "Seeker",
+            "Seeker Email": sessionInfo?.seeker.email || "Confidential",
+            "Seeker IP Address": sessionInfo?.seekerIp || (role === "seeker" ? senderIp : null) || "Unavailable",
+            "Listener Name": sessionInfo?.listener.displayName || "Listener",
+            "Listener IP Address": sessionInfo?.listenerIp || (role === "listener" ? senderIp : null) || "Unavailable",
           },
         }).catch((e) => console.error("[HeartSync] Failed to dispatch crisis email:", e));
       }
@@ -375,7 +417,7 @@ export async function getSessionView(userId: string, sessionId: string, afterId 
       where: { id: sessionId },
       select: {
         seeker: { select: { alias: true } },
-        listener: { select: { displayName: true, title: true, avatarHue: true } },
+        listener: { select: { displayName: true, title: true, avatarHue: true, isVerified: true } },
       },
     }),
   ]);
@@ -456,12 +498,27 @@ export async function rateSession(seekerId: string, sessionId: string, rating: n
     .catch(() => {});
 }
 
-export async function reportSession(userId: string, sessionId: string, reason: string, details: string | null) {
+export async function reportSession(
+  userId: string,
+  sessionId: string,
+  reason: string,
+  details: string | null,
+  reporterIp?: string,
+) {
   if (!(REPORT_REASONS as readonly string[]).includes(reason)) throw new ServiceError("Pick a reason.");
   const session = await reconcileSession(sessionId);
   if (!session) throw new ServiceError("Chat not found.");
   const role = await participantRole(userId, session);
   if (!role) throw new ServiceError("Chat not found.");
+
+  // Opportunistically backfill IP if not captured yet
+  if (reporterIp) {
+    if (role === "seeker" && !session.seekerIp) {
+      await db.chatSession.update({ where: { id: sessionId }, data: { seekerIp: reporterIp } }).catch(() => {});
+    } else if (role === "listener" && !session.listenerIp) {
+      await db.chatSession.update({ where: { id: sessionId }, data: { listenerIp: reporterIp } }).catch(() => {});
+    }
+  }
 
   await db.report.upsert({
     where: { sessionId_reporterId: { sessionId, reporterId: userId } },
@@ -469,7 +526,17 @@ export async function reportSession(userId: string, sessionId: string, reason: s
     update: { reason, details: details?.slice(0, 1000) || null, status: "OPEN" },
   });
 
-  // Notify admin of safety report
+  const sessionInfo = await db.chatSession.findUnique({
+    where: { id: sessionId },
+    select: {
+      seekerIp: true,
+      listenerIp: true,
+      seeker: { select: { alias: true, email: true } },
+      listener: { select: { displayName: true } },
+    },
+  });
+
+  // Notify admin of safety report with Seeker & Listener IP addresses
   sendAdminEmail({
     type: "report",
     title: `Safety Report: ${reason}`,
@@ -478,7 +545,13 @@ export async function reportSession(userId: string, sessionId: string, reason: s
     metadata: {
       "Session ID": sessionId,
       "Reporter ID": userId,
+      "Reporter Role": role.toUpperCase(),
       Reason: reason,
+      "Seeker Alias": sessionInfo?.seeker.alias || "Seeker",
+      "Seeker Email": sessionInfo?.seeker.email || "Confidential",
+      "Seeker IP Address": sessionInfo?.seekerIp || (role === "seeker" ? reporterIp : null) || "Unavailable",
+      "Listener Name": sessionInfo?.listener.displayName || "Listener",
+      "Listener IP Address": sessionInfo?.listenerIp || (role === "listener" ? reporterIp : null) || "Unavailable",
     },
   }).catch((e) => console.error("[HeartSync] Failed to dispatch report email:", e));
 
