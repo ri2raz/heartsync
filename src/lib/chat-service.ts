@@ -9,6 +9,7 @@ import {
   REPORT_REASONS,
   REQUEST_TIMEOUT_MS,
 } from "./constants";
+import { chatEventBus } from "./chat-events";
 import { db } from "./db";
 import { sendAdminEmail } from "./email";
 import { rateLimit } from "./rate-limit";
@@ -59,6 +60,13 @@ async function closeSession(
   });
   if (count === 0) return false;
 
+  chatEventBus.emitChatEvent(session.id, {
+    type: "status",
+    sessionId: session.id,
+    status: to,
+    endReason: reason,
+  });
+
   if (refund > 0) {
     await tx.user.update({ where: { id: session.seekerId }, data: { minutesBalance: { increment: refund } } });
   }
@@ -99,7 +107,7 @@ async function closeSession(
               "Minutes Used": `${minutesUsed(session, endedAt)} min`,
               "Ended At": endedAt.toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }) + " IST",
             },
-          }).catch((e) => console.error("[HeartSync] Chat end email error:", e));
+          }).catch((e) => console.error("[MannMitr] Chat end email error:", e));
         }
       })
       .catch(() => {});
@@ -211,7 +219,7 @@ export async function requestSession(seekerId: string, listenerId: string, minut
             "Status": "Waiting for listener to accept",
             "Time": new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }) + " IST",
           },
-        }).catch((e) => console.error("[HeartSync] Chat request email error:", e));
+        }).catch((e) => console.error("[MannMitr] Chat request email error:", e));
       }
     })
     .catch(() => {});
@@ -259,6 +267,12 @@ export async function acceptSession(listenerUserId: string, sessionId: string, l
     });
   });
 
+  chatEventBus.emitChatEvent(session.id, {
+    type: "status",
+    sessionId: session.id,
+    status: "ACTIVE",
+  });
+
   // Notify admin that the chat is now LIVE
   db.chatSession
     .findUnique({
@@ -283,7 +297,7 @@ export async function acceptSession(listenerUserId: string, sessionId: string, l
             "Duration": `${session.minutes} minutes`,
             "Started At": now.toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }) + " IST",
           },
-        }).catch((e) => console.error("[HeartSync] Chat accept email error:", e));
+        }).catch((e) => console.error("[MannMitr] Chat accept email error:", e));
       }
     })
     .catch(() => {});
@@ -319,7 +333,9 @@ export async function endChat(userId: string, sessionId: string) {
   );
 }
 
-export type PostMessageResult = { ok: true } | { ok: false; error: string };
+export type PostMessageResult =
+  | { ok: true; crisis?: boolean; crisisFlagged?: boolean }
+  | { ok: false; error: string; crisis?: boolean; crisisFlagged?: boolean };
 
 export async function postMessage(
   userId: string,
@@ -350,9 +366,22 @@ export async function postMessage(
   const result = moderateMessage(body);
   const now = new Date();
 
+  let createdMessage: { id: number; createdAt: Date } | null = null;
+  let crisisSystemMsg: { id: number; createdAt: Date } | null = null;
+
   await db.$transaction(async (tx) => {
     if (result.allowed) {
-      await tx.message.create({ data: { sessionId, senderId: userId, body, kind: "TEXT" } });
+      createdMessage = await tx.message.create({
+        data: {
+          sessionId,
+          senderId: userId,
+          body,
+          kind: "TEXT",
+          mediaType: "TEXT",
+          status: "SENT",
+        },
+        select: { id: true, createdAt: true },
+      });
     }
     if (result.crisis) {
       const lastCrisis = await tx.message.findFirst({
@@ -388,15 +417,74 @@ export async function postMessage(
             "Listener Name": sessionInfo?.listener.displayName || "Listener",
             "Listener IP Address": sessionInfo?.listenerIp || (role === "listener" ? senderIp : null) || "Unavailable",
           },
-        }).catch((e) => console.error("[HeartSync] Failed to dispatch crisis email:", e));
+        }).catch((e) => console.error("[MannMitr] Failed to dispatch crisis email:", e));
       }
       if (!lastCrisis || now.getTime() - lastCrisis.createdAt.getTime() > CRISIS_REPEAT_MS) {
-        await tx.message.create({ data: { sessionId, kind: "CRISIS", body: CRISIS_SYSTEM_MESSAGE } });
+        crisisSystemMsg = await tx.message.create({
+          data: {
+            sessionId,
+            kind: "CRISIS",
+            body: CRISIS_SYSTEM_MESSAGE,
+            mediaType: "TEXT",
+            status: "SENT",
+          },
+          select: { id: true, createdAt: true },
+        });
       }
     }
   });
 
-  return result.allowed ? { ok: true } : { ok: false, error: result.notice };
+  const isCrisisActive = Boolean(session.crisisFlaggedAt || result.crisis);
+
+  if (createdMessage) {
+    chatEventBus.emitChatEvent(sessionId, {
+      type: "message",
+      sessionId,
+      message: {
+        id: (createdMessage as { id: number }).id,
+        sessionId,
+        senderId: userId,
+        kind: "TEXT",
+        body,
+        mediaType: "TEXT",
+        mediaUrl: null,
+        audioDuration: null,
+        status: "SENT",
+        createdAt: (createdMessage as { createdAt: Date }).createdAt.toISOString(),
+      },
+      crisisFlagged: isCrisisActive,
+    });
+  }
+
+  if (crisisSystemMsg) {
+    chatEventBus.emitChatEvent(sessionId, {
+      type: "message",
+      sessionId,
+      message: {
+        id: (crisisSystemMsg as { id: number }).id,
+        sessionId,
+        senderId: null,
+        kind: "CRISIS",
+        body: CRISIS_SYSTEM_MESSAGE,
+        mediaType: "TEXT",
+        mediaUrl: null,
+        audioDuration: null,
+        status: "SENT",
+        createdAt: (crisisSystemMsg as { createdAt: Date }).createdAt.toISOString(),
+      },
+      crisisFlagged: true,
+    });
+    chatEventBus.emitChatEvent(sessionId, {
+      type: "crisis",
+      sessionId,
+      crisisFlagged: true,
+      flaggedAt: now.toISOString(),
+    });
+  }
+
+  return result.allowed
+    ? { ok: true, crisis: result.crisis, crisisFlagged: isCrisisActive }
+    : { ok: false, error: result.notice, crisis: result.crisis, crisisFlagged: isCrisisActive };
 }
 
 export async function getSessionView(userId: string, sessionId: string, afterId = 0) {
@@ -411,7 +499,18 @@ export async function getSessionView(userId: string, sessionId: string, afterId 
       where: { sessionId, id: { gt: afterId } },
       orderBy: { id: "asc" },
       take: 200,
-      select: { id: true, body: true, kind: true, senderId: true, createdAt: true },
+      select: {
+        id: true,
+        body: true,
+        kind: true,
+        senderId: true,
+        mediaType: true,
+        mediaUrl: true,
+        audioDuration: true,
+        status: true,
+        readAt: true,
+        createdAt: true,
+      },
     }),
     db.chatSession.findUniqueOrThrow({
       where: { id: sessionId },
@@ -430,6 +529,8 @@ export async function getSessionView(userId: string, sessionId: string, afterId 
     isFree: session.isFree,
     endReason: session.endReason,
     rating: session.rating,
+    wellbeingScore: session.wellbeingScore,
+    wellbeingFlagged: Boolean(session.wellbeingFlaggedAt),
     secondsRemaining:
       session.status === "ACTIVE" && session.startedAt ? secondsRemaining(session.startedAt, session.minutes) : null,
     requestExpiresAt:
@@ -440,7 +541,12 @@ export async function getSessionView(userId: string, sessionId: string, afterId 
     messages: messages.map((m) => ({
       id: m.id,
       body: m.body,
-      kind: m.kind as "TEXT" | "SYSTEM" | "CRISIS",
+      kind: m.kind as "TEXT" | "SYSTEM" | "CRISIS" | "AUDIO",
+      mediaType: m.mediaType || "TEXT",
+      mediaUrl: m.mediaUrl,
+      audioDuration: m.audioDuration,
+      status: m.status || "SENT",
+      readAt: m.readAt ? m.readAt.toISOString() : null,
       mine: m.senderId === userId,
       createdAt: m.createdAt.toISOString(),
     })),
@@ -449,16 +555,32 @@ export async function getSessionView(userId: string, sessionId: string, afterId 
 
 export type SessionView = NonNullable<Awaited<ReturnType<typeof getSessionView>>>;
 
-export async function rateSession(seekerId: string, sessionId: string, rating: number, feedback: string | null) {
+export async function rateSession(
+  seekerId: string,
+  sessionId: string,
+  rating: number,
+  feedback: string | null,
+  wellbeingScore?: number | null,
+  wellbeingFeedback?: string | null,
+) {
   if (!Number.isInteger(rating) || rating < 1 || rating > 5) throw new ServiceError("Pick a rating from 1 to 5.");
   const session = await db.chatSession.findUnique({ where: { id: sessionId } });
   if (!session || session.seekerId !== seekerId) throw new ServiceError("Chat not found.");
   if (session.status !== "ENDED") throw new ServiceError("You can rate a chat once it has ended.");
 
+  const isLowWellbeing = wellbeingScore !== undefined && wellbeingScore !== null && wellbeingScore <= 2;
+  const now = new Date();
+
   await db.$transaction(async (tx) => {
     const { count } = await tx.chatSession.updateMany({
       where: { id: sessionId, rating: null },
-      data: { rating, feedback: feedback?.slice(0, 500) || null },
+      data: {
+        rating,
+        feedback: feedback?.slice(0, 500) || null,
+        wellbeingScore: wellbeingScore ?? null,
+        wellbeingFeedback: wellbeingFeedback?.slice(0, 500) || null,
+        ...(isLowWellbeing ? { wellbeingFlaggedAt: now } : {}),
+      },
     });
     if (count === 0) throw new ServiceError("You've already rated this chat.");
     await tx.listenerProfile.update({
@@ -466,6 +588,37 @@ export async function rateSession(seekerId: string, sessionId: string, rating: n
       data: { ratingSum: { increment: rating }, ratingCount: { increment: 1 } },
     });
   });
+
+  // If low wellbeing score, notify safety desk immediately
+  if (isLowWellbeing) {
+    db.chatSession
+      .findUnique({
+        where: { id: sessionId },
+        select: {
+          seeker: { select: { alias: true, email: true } },
+          listener: { select: { displayName: true } },
+        },
+      })
+      .then((info) => {
+        if (info) {
+          sendAdminEmail({
+            type: "crisis",
+            title: `⚠️ LOW WELLBEING CHECK: Post-Chat Score ${wellbeingScore}/5`,
+            subject: `Post-Chat Wellbeing Concern for ${info.seeker.alias}`,
+            details: `Seeker "${info.seeker.alias}" scored their emotional wellbeing as ${wellbeingScore}/5 after chatting with ${info.listener.displayName}.\nComment: "${wellbeingFeedback || "None"}"`,
+            metadata: {
+              "Session ID": sessionId,
+              "Seeker": info.seeker.alias,
+              "Wellbeing Score": `${wellbeingScore} / 5`,
+              "Feedback": wellbeingFeedback || "None",
+              "Helpline Shown": "Tele-MANAS 14416 & 112",
+              "Submitted At": now.toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }) + " IST",
+            },
+          }).catch((e) => console.error("[MannMitr] Low wellbeing email error:", e));
+        }
+      })
+      .catch(() => {});
+  }
 
   // Notify admin of rating & feedback
   db.chatSession
@@ -492,7 +645,7 @@ export async function rateSession(seekerId: string, sessionId: string, rating: n
             "Feedback": feedback || "None",
             "Submitted At": new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }) + " IST",
           },
-        }).catch((e) => console.error("[HeartSync] Rating email error:", e));
+        }).catch((e) => console.error("[MannMitr] Rating email error:", e));
       }
     })
     .catch(() => {});
@@ -553,7 +706,7 @@ export async function reportSession(
       "Listener Name": sessionInfo?.listener.displayName || "Listener",
       "Listener IP Address": sessionInfo?.listenerIp || (role === "listener" ? reporterIp : null) || "Unavailable",
     },
-  }).catch((e) => console.error("[HeartSync] Failed to dispatch report email:", e));
+  }).catch((e) => console.error("[MannMitr] Failed to dispatch report email:", e));
 
   // Reporting always ends a live chat so nobody has to keep talking to someone they flagged.
   if (session.status === "ACTIVE") {

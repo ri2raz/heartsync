@@ -26,8 +26,8 @@ export default async function TranscriptPage({ params }: { params: Promise<{ id:
       reports: { select: { id: true } },
     },
   });
-  // Privacy: only chats that were crisis-flagged or reported can be opened by the safety team.
-  if (!session || (!session.crisisFlaggedAt && session.reports.length === 0)) notFound();
+  // Privacy: only chats that were crisis-flagged, wellbeing-flagged, or reported can be opened by the safety team.
+  if (!session || (!session.crisisFlaggedAt && !session.wellbeingFlaggedAt && session.reports.length === 0)) notFound();
 
   return (
     <Container className="max-w-3xl">
@@ -44,6 +44,9 @@ export default async function TranscriptPage({ params }: { params: Promise<{ id:
       />
       <div className="mb-6 flex flex-wrap gap-2">
         {session.crisisFlaggedAt ? <Badge tone="danger">Crisis flagged</Badge> : null}
+        {session.wellbeingFlaggedAt ? (
+          <Badge tone="amber">Low wellbeing score: {session.wellbeingScore}/5</Badge>
+        ) : null}
         {session.reports.length ? <Badge tone="amber">{session.reports.length} report(s)</Badge> : null}
         <Badge tone="neutral">Seeker IP: {session.seekerIp || "Unavailable"}</Badge>
         <Badge tone="neutral">Listener IP: {session.listenerIp || "Unavailable"}</Badge>

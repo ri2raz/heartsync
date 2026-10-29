@@ -65,7 +65,7 @@ export function ApplyForm() {
           <a href="/safety#code" target="_blank" className="font-medium text-ink underline underline-offset-2">
             listener code of conduct
           </a>
-          . I will keep every chat platonic and on HeartSync, never ask for contact details or money, and never present
+          . I will keep every chat platonic and on MannMitr, never ask for contact details or money, and never present
           myself as a therapist or doctor.
         </CheckboxRow>
         {fe.conduct ? <p className="pl-9 text-sm text-danger">{fe.conduct}</p> : null}

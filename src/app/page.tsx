@@ -2,6 +2,7 @@ import { Hero } from "@/components/landing/hero";
 import {
   CanAndCannot,
   CrisisBand,
+  DailyAffirmationSection,
   Faq,
   FinalCta,
   HowItWorks,
@@ -11,7 +12,7 @@ import {
   PricingTeaser,
   SupportPillars,
   TopicMarquee,
-  WhyHeartSync,
+  WhyMannMitr,
 } from "@/components/landing/sections";
 import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -30,7 +31,7 @@ export default async function HomePage() {
     if ((error as { digest?: string })?.digest === "DYNAMIC_SERVER_USAGE") {
       throw error;
     }
-    console.error("[HeartSync] Failed to fetch home page data:", error);
+    console.error("[MannMitr] Failed to fetch home page data:", error);
   }
 
   const listeners = withPresence(candidates).slice(0, 4);
@@ -42,12 +43,13 @@ export default async function HomePage() {
       <TopicMarquee />
       <SupportPillars />
       <HowItWorks />
-      <WhyHeartSync />
+      <WhyMannMitr />
       <CanAndCannot />
       <ListenerPreview listeners={listeners} />
       <PricingTeaser />
       <ListenerCta />
       <Faq />
+      <DailyAffirmationSection />
       <HowWeStarted />
       <CrisisBand />
       <FinalCta signedIn={signedIn} />

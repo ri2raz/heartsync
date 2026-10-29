@@ -48,7 +48,7 @@ export default async function ListenersPage({ searchParams }: { searchParams: Pr
   try {
     rawListeners = await db.listenerProfile.findMany({ where: { isActive: true }, orderBy: { createdAt: "asc" } });
   } catch (error) {
-    console.error("[HeartSync] Failed to fetch listeners:", error);
+    console.error("[MannMitr] Failed to fetch listeners:", error);
   }
   const all = withPresence(rawListeners);
   const listeners = all.filter(

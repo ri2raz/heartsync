@@ -28,7 +28,7 @@ export function SignupForm({ next }: { next?: string }) {
       <Field label="Password" htmlFor="password" hint="At least 8 characters." error={fe.password}>
         <Input id="password" name="password" type="password" autoComplete="new-password" required minLength={8} />
       </Field>
-      <Field label="Date of birth" htmlFor="dateOfBirth" hint="HeartSync is for adults (18+) only." error={fe.dateOfBirth}>
+      <Field label="Date of birth" htmlFor="dateOfBirth" hint="MannMitr is for adults (18+) only." error={fe.dateOfBirth}>
         <Input id="dateOfBirth" name="dateOfBirth" type="date" max={maxDob} defaultValue={v("dateOfBirth")} required />
       </Field>
       <div className="space-y-1">
@@ -41,7 +41,7 @@ export function SignupForm({ next }: { next?: string }) {
           <Link href="/privacy" className="font-medium text-ink underline underline-offset-2" target="_blank">
             Privacy Policy
           </Link>
-          , and I understand HeartSync is peer support, not therapy or an emergency service.
+          , and I understand MannMitr is peer support, not therapy or an emergency service.
         </CheckboxRow>
         {fe.agree ? <p className="pl-9 text-sm text-danger">{fe.agree}</p> : null}
       </div>

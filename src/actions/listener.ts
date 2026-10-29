@@ -124,7 +124,7 @@ export async function setOnline(online: boolean): Promise<FormState> {
       "Topics": user.listenerProfile.topics,
       "Time": new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }) + " IST",
     },
-  }).catch((e) => console.error("[HeartSync] Listener online email error:", e));
+  }).catch((e) => console.error("[MannMitr] Listener online email error:", e));
 
   return { error: null };
 }

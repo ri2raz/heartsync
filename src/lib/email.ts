@@ -60,13 +60,13 @@ function getBadgeStyles(type: EmailPayload["type"]): { bg: string; color: string
 
 export async function sendAdminEmail(payload: EmailPayload): Promise<{ success: boolean; message?: string }> {
   const recipient = ADMIN_NOTIFICATION_EMAIL;
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://heartsync-navy.vercel.app";
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://mannmitr.in";
 
-  const emailSubject = `[HeartSync] ${payload.title}`;
+  const emailSubject = `[MannMitr] ${payload.title}`;
   const badge = getBadgeStyles(payload.type);
 
   const textBody = `
-HeartSync Administrative Alert
+MannMitr Administrative Alert
 =====================================
 Alert Type: ${badge.label}
 Title: ${payload.title}
@@ -97,7 +97,7 @@ View Admin Panel: ${siteUrl}/admin
 <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #e5e5e5; border-radius: 12px; background-color: #ffffff;">
   <div style="margin-bottom: 20px; border-bottom: 2px solid #ff4d6d; padding-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
     <div>
-      <h2 style="color: #111; margin: 0; font-size: 20px; font-weight: 700;">HeartSync Administrative Alert</h2>
+      <h2 style="color: #111; margin: 0; font-size: 20px; font-weight: 700;">MannMitr Administrative Alert</h2>
       <span style="display: inline-block; margin-top: 6px; font-size: 11px; font-weight: 700; letter-spacing: 0.05em; background: ${badge.bg}; color: ${badge.color}; padding: 4px 10px; border-radius: 20px;">${badge.label}</span>
     </div>
   </div>
@@ -132,18 +132,18 @@ View Admin Panel: ${siteUrl}/admin
 
   <div style="margin-top: 24px; text-align: center; border-top: 1px solid #f3f4f6; padding-top: 18px;">
     <a href="${siteUrl}/admin" style="display: inline-block; background-color: #0f172a; color: #ffffff; text-decoration: none; font-weight: 600; font-size: 13px; padding: 10px 22px; border-radius: 50px;">Open Admin Dashboard</a>
-    <p style="font-size: 11px; color: #9ca3af; margin-top: 12px;">Sent automatically by HeartSync Engine to ${escapeHtml(recipient)}</p>
+    <p style="font-size: 11px; color: #9ca3af; margin-top: 12px;">Sent automatically by MannMitr Engine to ${escapeHtml(recipient)}</p>
   </div>
 </div>
 `.trim();
 
   // Log alert to server output
-  console.log(`[HeartSync Notification Email -> ${recipient}]:\nSubject: ${emailSubject}\n${textBody}`);
+  console.log(`[MannMitr Notification Email -> ${recipient}]:\nSubject: ${emailSubject}\n${textBody}`);
 
   // Send via Resend if resendApiKey is configured
   if (resendApiKey) {
     try {
-      const fromEmail = process.env.EMAIL_FROM || "HeartSync Desk <onboarding@resend.dev>";
+      const fromEmail = process.env.EMAIL_FROM || "MannMitr Desk <onboarding@resend.dev>";
       const res = await fetch("https://api.resend.com/emails", {
         method: "POST",
         headers: {
@@ -161,14 +161,14 @@ View Admin Panel: ${siteUrl}/admin
 
       if (!res.ok) {
         const errText = await res.text();
-        console.error("[HeartSync] Resend API error:", errText);
+        console.error("[MannMitr] Resend API error:", errText);
         return { success: false, message: errText };
       }
 
-      console.log(`[HeartSync] Admin notification email dispatched successfully via Resend: "${emailSubject}"`);
+      console.log(`[MannMitr] Admin notification email dispatched successfully via Resend: "${emailSubject}"`);
       return { success: true };
     } catch (error) {
-      console.error("[HeartSync] Error sending email via Resend:", error);
+      console.error("[MannMitr] Error sending email via Resend:", error);
       return { success: false, message: String(error) };
     }
   }
@@ -186,34 +186,34 @@ export async function sendOtpEmail({
   alias?: string;
 }): Promise<{ success: boolean; message?: string }> {
   const greeting = alias ? `Hi ${alias}` : "Hello";
-  const emailSubject = `${otp} is your HeartSync verification code`;
+  const emailSubject = `${otp} is your MannMitr verification code`;
 
   const textBody = `
 ${greeting},
 
-Welcome to HeartSync. Here is your 6-digit verification code:
+Welcome to MannMitr. Here is your 6-digit verification code:
 
   ${otp}
 
 This code will expire in 10 minutes.
-If you didn't create an account on HeartSync, you can safely ignore this email.
+If you didn't create an account on MannMitr, you can safely ignore this email.
 
 Warm regards,
-HeartSync Team
-https://heartsync-navy.vercel.app
+MannMitr Team
+https://mannmitr.in
 `.trim();
 
   const htmlBody = `
 <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 520px; margin: 0 auto; padding: 32px 24px; border: 1px solid #f0f0f0; border-radius: 16px; background-color: #ffffff;">
   <div style="text-align: center; margin-bottom: 24px;">
-    <h1 style="color: #0f172a; margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -0.5px;">HeartSync</h1>
+    <h1 style="color: #0f172a; margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -0.5px;">MannMitr</h1>
     <p style="color: #64748b; margin: 4px 0 0 0; font-size: 13px;">Talk to a verified big bro or big sis</p>
   </div>
 
   <div style="border-top: 1px solid #f1f5f9; padding-top: 24px;">
     <p style="font-size: 16px; color: #1e293b; margin: 0 0 16px 0; font-weight: 500;">${escapeHtml(greeting)},</p>
     <p style="font-size: 14px; line-height: 1.6; color: #475569; margin: 0 0 24px 0;">
-      Thank you for joining HeartSync. To verify your email address and activate your account, please enter this 6-digit confirmation code:
+      Thank you for joining MannMitr. To verify your email address and activate your account, please enter this 6-digit confirmation code:
     </p>
 
     <div style="text-align: center; margin: 28px 0;">
@@ -229,17 +229,17 @@ https://heartsync-navy.vercel.app
   </div>
 
   <div style="margin-top: 32px; padding-top: 20px; border-top: 1px solid #f1f5f9; text-align: center; font-size: 12px; color: #94a3b8;">
-    HeartSync · A safe, anonymous space for young adults
+    MannMitr · A safe, anonymous space for young adults
   </div>
 </div>
 `.trim();
 
   // Always log OTP for instant local development/testing visibility
-  console.log(`[HeartSync OTP] 🔑 Verification code for ${email} is: ${otp}`);
+  console.log(`[MannMitr OTP] 🔑 Verification code for ${email} is: ${otp}`);
 
   if (resendApiKey) {
     try {
-      const fromEmail = process.env.EMAIL_FROM || "HeartSync Desk <onboarding@resend.dev>";
+      const fromEmail = process.env.EMAIL_FROM || "MannMitr Desk <onboarding@resend.dev>";
       const res = await fetch("https://api.resend.com/emails", {
         method: "POST",
         headers: {
@@ -257,14 +257,14 @@ https://heartsync-navy.vercel.app
 
       if (!res.ok) {
         const errText = await res.text();
-        console.error("[HeartSync] Resend API error sending OTP:", errText);
+        console.error("[MannMitr] Resend API error sending OTP:", errText);
         return { success: false, message: errText };
       }
 
-      console.log(`[HeartSync] Verification OTP successfully dispatched to ${email} via Resend.`);
+      console.log(`[MannMitr] Verification OTP successfully dispatched to ${email} via Resend.`);
       return { success: true };
     } catch (error) {
-      console.error("[HeartSync] Error sending OTP via Resend:", error);
+      console.error("[MannMitr] Error sending OTP via Resend:", error);
       return { success: false, message: String(error) };
     }
   }

@@ -1,4 +1,4 @@
-export const APP_NAME = "HeartSync";
+export const APP_NAME = "MannMitr";
 export const TAGLINE_HI = "Kisi se baat karni hai?";
 export const TAGLINE_HI_ACCENT = "Bina judge kiye sunne wale.";
 export const TAGLINE_EN =

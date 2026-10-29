@@ -19,6 +19,7 @@ type NavUser = { alias: string; role: Role } | null;
 const PUBLIC_LINKS = [
   { href: "/listeners", label: "Listeners" },
   { href: "/pricing", label: "100% Free" },
+  { href: "/how-we-started", label: "Our Story & Quotes" },
   { href: "/safety", label: "Safety" },
   { href: "/become-a-listener", label: "Become a listener" },
   { href: "/contact", label: "Contact Us" },

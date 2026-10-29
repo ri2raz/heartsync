@@ -1,5 +1,5 @@
 /**
- * Date formatting for server-rendered pages. HeartSync serves India, so server output is
+ * Date formatting for server-rendered pages. MannMitr serves India, so server output is
  * pinned to IST — otherwise a UTC server would print times 5½ hours off.
  * Client components show times in the viewer's own zone (see useMounted in components/chat).
  */

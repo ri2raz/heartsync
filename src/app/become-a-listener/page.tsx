@@ -25,7 +25,7 @@ export default async function BecomeListenerPage() {
   return (
     <Container className="max-w-5xl">
       <PageHeader
-        eyebrow="Listen with HeartSync"
+        eyebrow="Listen with MannMitr"
         title={
           <>
             Be the big bro or big sis <span className="italic text-rose">you once needed.</span>

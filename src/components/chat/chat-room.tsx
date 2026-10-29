@@ -1,6 +1,18 @@
 "use client";
 
-import { ArrowUp, Flag, LifeBuoy, LoaderCircle, PhoneCall, ShieldCheck, Timer, X } from "lucide-react";
+import {
+  ArrowUp,
+  Check,
+  CheckCheck,
+  Flag,
+  LifeBuoy,
+  LoaderCircle,
+  Mic,
+  PhoneCall,
+  ShieldCheck,
+  Timer,
+  X,
+} from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
@@ -13,13 +25,15 @@ import { HELPLINES, LISTENER_TITLES, MAX_MESSAGE_LENGTH } from "@/lib/constants"
 import { useMounted } from "@/lib/use-mounted";
 import { cn, hueFromString } from "@/lib/utils";
 
+import { AudioPlayer } from "./audio-player";
+import { AudioRecorder } from "./audio-recorder";
 import { RateChat } from "./rate-chat";
 import { ReportDialog } from "./report-dialog";
 
 type Message = SessionView["messages"][number];
 
-const ACTIVE_POLL_MS = 2000;
-const IDLE_POLL_MS = 6000;
+const FALLBACK_POLL_MS = 6000;
+const IDLE_POLL_MS = 12000;
 
 function formatClock(totalSeconds: number): string {
   const s = Math.max(0, Math.floor(totalSeconds));
@@ -50,12 +64,15 @@ export function ChatRoom({ initial }: { initial: SessionView }) {
   const [sending, setSending] = useState(false);
   const [pending, startTransition] = useTransition();
   const [reportOpen, setReportOpen] = useState(false);
+  const [counterpartTyping, setCounterpartTyping] = useState(false);
+  const [showVoiceRecorder, setShowVoiceRecorder] = useState(false);
   const mounted = useMounted();
 
   const lastIdRef = useRef(initial.messages.at(-1)?.id ?? 0);
   const listRef = useRef<HTMLDivElement>(null);
   const stickToBottom = useRef(true);
   const pollNow = useRef<() => void>(() => {});
+  const typingTimerRef = useRef<number | null>(null);
 
   const secondsLeft = useCountdown(view.status === "ACTIVE" ? endsAt : null);
   const requestSecondsLeft = useCountdown(
@@ -83,7 +100,114 @@ export function ChatRoom({ initial }: { initial: SessionView }) {
     }
   }, []);
 
-  // Poll for new messages and status changes while the chat is open.
+  // 1. Real-time Server-Sent Events (SSE) Stream
+  useEffect(() => {
+    if (!isOpen) return;
+
+    let es: EventSource | null = null;
+    try {
+      es = new EventSource(`/api/sessions/${initial.id}/stream`);
+
+      es.addEventListener("message", (e) => {
+        try {
+          const payload = JSON.parse(e.data);
+          if (payload.type === "message" && payload.message) {
+            const raw = payload.message;
+            setMessages((prev) => {
+              if (prev.some((m) => m.id === raw.id)) return prev;
+              const isMine =
+                raw.mine ?? (raw.senderId === (view.role === "seeker" ? initial.id : null));
+              return [
+                ...prev,
+                {
+                  id: raw.id,
+                  body: raw.body,
+                  kind: raw.kind,
+                  mediaType: raw.mediaType || "TEXT",
+                  mediaUrl: raw.mediaUrl || null,
+                  audioDuration: raw.audioDuration || null,
+                  status: raw.status || "SENT",
+                  readAt: null,
+                  mine: isMine,
+                  createdAt: raw.createdAt,
+                },
+              ];
+            });
+            lastIdRef.current = Math.max(lastIdRef.current, raw.id);
+            if (payload.crisisFlagged) {
+              setView((prev) => ({ ...prev, crisisFlagged: true }));
+            }
+          }
+        } catch (err) {
+          console.error("SSE parse error", err);
+        }
+      });
+
+      es.addEventListener("typing", (e) => {
+        try {
+          const payload = JSON.parse(e.data);
+          if (payload.sessionId === initial.id) {
+            setCounterpartTyping(Boolean(payload.isTyping));
+          }
+        } catch {}
+      });
+
+      es.addEventListener("read", (e) => {
+        try {
+          const payload = JSON.parse(e.data);
+          if (payload.sessionId === initial.id) {
+            setMessages((prev) =>
+              prev.map((m) => (m.mine && m.id <= payload.readUpToId ? { ...m, status: "READ" } : m)),
+            );
+          }
+        } catch {}
+      });
+
+      es.addEventListener("status", (e) => {
+        try {
+          const payload = JSON.parse(e.data);
+          if (payload.status) {
+            setView((prev) => ({
+              ...prev,
+              status: payload.status,
+              endReason: payload.endReason ?? prev.endReason,
+            }));
+            pollNow.current();
+          }
+        } catch {}
+      });
+
+      es.addEventListener("crisis", (e) => {
+        try {
+          const payload = JSON.parse(e.data);
+          if (payload.crisisFlagged) {
+            setView((prev) => ({ ...prev, crisisFlagged: true }));
+          }
+        } catch {}
+      });
+    } catch {
+      // EventSource failed — fallback polling handles updates
+    }
+
+    return () => {
+      es?.close();
+    };
+  }, [initial.id, isOpen, view.role]);
+
+  // 2. Mark counterpart messages as read
+  useEffect(() => {
+    const unread = messages.filter((m) => !m.mine && m.status !== "READ");
+    if (unread.length > 0 && !document.hidden && isOpen) {
+      const highestId = Math.max(...unread.map((m) => m.id));
+      fetch(`/api/sessions/${initial.id}/read`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ readUpToId: highestId }),
+      }).catch(() => {});
+    }
+  }, [messages, initial.id, isOpen]);
+
+  // 3. Resilient Polling Fallback
   useEffect(() => {
     if (!isOpen) return;
     let cancelled = false;
@@ -105,13 +229,13 @@ export function ChatRoom({ initial }: { initial: SessionView }) {
         }
         if (res.ok && !cancelled) applyView((await res.json()) as SessionView);
       } catch {
-        // Network blips and aborts are fine — the next tick retries.
+        // Retries on next tick
       }
-      if (!cancelled) timer = window.setTimeout(tick, document.hidden ? IDLE_POLL_MS : ACTIVE_POLL_MS);
+      if (!cancelled) timer = window.setTimeout(tick, document.hidden ? IDLE_POLL_MS : FALLBACK_POLL_MS);
     }
 
     pollNow.current = () => void tick();
-    timer = window.setTimeout(tick, ACTIVE_POLL_MS);
+    timer = window.setTimeout(tick, FALLBACK_POLL_MS);
     const onVisible = () => !document.hidden && void tick();
     document.addEventListener("visibilitychange", onVisible);
     return () => {
@@ -129,29 +253,69 @@ export function ChatRoom({ initial }: { initial: SessionView }) {
     }
   }, [secondsLeft, requestSecondsLeft, view.status]);
 
-  // Keep the newest message in view unless the user has scrolled up to read.
+  // Keep newest message in view
   useEffect(() => {
     const el = listRef.current;
     if (el && stickToBottom.current) el.scrollTop = el.scrollHeight;
-  }, [messages]);
+  }, [messages, counterpartTyping]);
+
+  function handleDraftChange(val: string) {
+    setDraft(val.slice(0, MAX_MESSAGE_LENGTH));
+
+    // Emit typing indicator
+    fetch(`/api/sessions/${initial.id}/typing`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ isTyping: true }),
+    }).catch(() => {});
+
+    if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+    typingTimerRef.current = window.setTimeout(() => {
+      fetch(`/api/sessions/${initial.id}/typing`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isTyping: false }),
+      }).catch(() => {});
+    }, 1500);
+  }
 
   async function send() {
     const body = draft.trim();
     if (!body || sending) return;
     setSending(true);
     setNotice(null);
+
+    // Stop typing indicator
+    if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+    fetch(`/api/sessions/${initial.id}/typing`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ isTyping: false }),
+    }).catch(() => {});
+
     try {
       const res = await fetch(`/api/sessions/${initial.id}/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ body }),
       });
-      const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      const data = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        error?: string;
+        crisis?: boolean;
+        crisisFlagged?: boolean;
+      };
       if (data.ok) {
         setDraft("");
         stickToBottom.current = true;
+        if (data.crisisFlagged) {
+          setView((prev) => ({ ...prev, crisisFlagged: true }));
+        }
       } else {
         setNotice(data.error ?? "Couldn't send that. Try again.");
+        if (data.crisisFlagged) {
+          setView((prev) => ({ ...prev, crisisFlagged: true }));
+        }
       }
     } catch {
       setNotice("You seem to be offline. Check your connection and try again.");
@@ -173,14 +337,16 @@ export function ChatRoom({ initial }: { initial: SessionView }) {
   const lowTime = secondsLeft !== null && secondsLeft <= 120;
 
   return (
-    <div className="flex h-[calc(100dvh-7.5rem)] min-h-[520px] flex-col overflow-hidden rounded-[2rem] border border-line bg-surface shadow-soft">
+    <div className="flex h-[calc(100dvh-7.5rem)] min-h-[540px] flex-col overflow-hidden rounded-[2rem] border border-line bg-surface shadow-soft">
       {/* Header */}
       <header className="flex items-center gap-3 border-b border-line px-4 py-3 sm:px-6">
         <Avatar name={counterpart.name} hue={counterpart.hue} size={42} />
         <div className="min-w-0 flex-1">
           <p className="truncate font-semibold">{counterpart.name}</p>
           <p className="flex items-center gap-1.5 text-xs text-muted">
-            {view.role === "seeker" && view.listener.isVerified ? <ShieldCheck className="size-3.5 text-rose" aria-hidden /> : null}
+            {view.role === "seeker" && view.listener.isVerified ? (
+              <ShieldCheck className="size-3.5 text-rose" aria-hidden />
+            ) : null}
             {counterpart.sub} · {statusLabel(view.status)}
           </p>
         </div>
@@ -196,7 +362,13 @@ export function ChatRoom({ initial }: { initial: SessionView }) {
           </span>
         ) : null}
         {view.status !== "DECLINED" ? (
-          <Button variant="ghost" size="sm" onClick={() => setReportOpen(true)} aria-label="Report this chat" className="px-3">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setReportOpen(true)}
+            aria-label="Report this chat"
+            className="px-3"
+          >
             <Flag className="size-4" aria-hidden />
             <span className="hidden sm:inline">Report</span>
           </Button>
@@ -215,19 +387,24 @@ export function ChatRoom({ initial }: { initial: SessionView }) {
         ) : null}
       </header>
 
+      {/* Prominent Crisis Helpline Banner */}
       {view.crisisFlagged ? (
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-danger/20 bg-danger-soft px-4 py-3 text-sm sm:px-6">
-          <LifeBuoy className="size-4 shrink-0 text-danger" aria-hidden />
-          <span className="font-medium text-ink">You&apos;re not alone. Free help, 24×7:</span>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-danger/30 bg-danger-soft px-4 py-3 text-sm sm:px-6 animate-fade-in">
+          <LifeBuoy className="size-4.5 shrink-0 text-danger" aria-hidden />
+          <span className="font-semibold text-danger">You are not alone. Free, confidential help 24×7:</span>
           {HELPLINES.slice(0, 2).map((h) => (
-            <a key={h.number} href={`tel:${h.number}`} className="inline-flex items-center gap-1 font-semibold text-danger underline-offset-2 hover:underline">
-              <PhoneCall className="size-3.5" aria-hidden /> {h.number}
+            <a
+              key={h.number}
+              href={`tel:${h.number}`}
+              className="inline-flex items-center gap-1 rounded-full bg-surface px-3 py-1 text-xs font-bold text-danger ring-1 ring-danger/30 hover:underline"
+            >
+              <PhoneCall className="size-3" aria-hidden /> Call {h.name} ({h.number})
             </a>
           ))}
         </div>
       ) : null}
 
-      {/* Messages */}
+      {/* Messages Scroll Area */}
       <div
         ref={listRef}
         onScroll={(e) => {
@@ -254,50 +431,112 @@ export function ChatRoom({ initial }: { initial: SessionView }) {
           <MessageBubble key={m.id} message={m} mounted={mounted} />
         ))}
 
-        {!isOpen ? (
-          <EndedCard view={view} counterpartName={counterpart.name} />
+        {/* Real-time Typing Indicator */}
+        {counterpartTyping ? (
+          <div className="flex justify-start animate-fade-in">
+            <div className="flex items-center gap-2 rounded-3xl rounded-bl-lg bg-surface-2 px-4 py-2.5 text-xs text-muted shadow-soft">
+              <span>{counterpart.name} is typing</span>
+              <span className="flex gap-1">
+                <span className="size-1.5 animate-bounce rounded-full bg-muted/60" style={{ animationDelay: "0ms" }} />
+                <span className="size-1.5 animate-bounce rounded-full bg-muted/60" style={{ animationDelay: "150ms" }} />
+                <span className="size-1.5 animate-bounce rounded-full bg-muted/60" style={{ animationDelay: "300ms" }} />
+              </span>
+            </div>
+          </div>
         ) : null}
+
+        {!isOpen ? <EndedCard view={view} counterpartName={counterpart.name} /> : null}
       </div>
 
-      {/* Composer */}
+      {/* Composer & Audio Voice Notes */}
       {view.status === "ACTIVE" ? (
         <div className="border-t border-line p-3 sm:p-4">
           {notice ? (
-            <div role="alert" className="mb-3 flex items-start gap-2 rounded-2xl bg-rose-soft px-4 py-2.5 text-sm text-rose">
+            <div
+              role="alert"
+              className="mb-3 flex items-start gap-2 rounded-2xl bg-rose-soft px-4 py-2.5 text-sm text-rose"
+            >
               <span className="flex-1">{notice}</span>
               <button type="button" onClick={() => setNotice(null)} aria-label="Dismiss" className="shrink-0">
                 <X className="size-4" />
               </button>
             </div>
           ) : null}
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              void send();
-            }}
-            className="flex items-end gap-2"
-          >
-            <label htmlFor="composer" className="sr-only">
-              Message
-            </label>
-            <textarea
-              id="composer"
-              value={draft}
-              onChange={(e) => setDraft(e.target.value.slice(0, MAX_MESSAGE_LENGTH))}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
-                  e.preventDefault();
-                  void send();
-                }
+
+          {showVoiceRecorder ? (
+            <AudioRecorder
+              sessionId={initial.id}
+              onAudioSent={(audioMsg) => {
+                setShowVoiceRecorder(false);
+                setMessages((prev) => [
+                  ...prev,
+                  {
+                    id: audioMsg.id,
+                    body: audioMsg.isAnonymized ? "Voice note (anonymized)" : "Voice note",
+                    kind: "AUDIO",
+                    mediaType: "AUDIO",
+                    mediaUrl: audioMsg.mediaUrl,
+                    audioDuration: audioMsg.duration,
+                    status: "SENT",
+                    readAt: null,
+                    mine: true,
+                    createdAt: new Date().toISOString(),
+                  },
+                ]);
+                stickToBottom.current = true;
+                pollNow.current();
               }}
-              rows={1}
-              placeholder="Type what's on your mind…"
-              className="max-h-40 min-h-12 flex-1 resize-none rounded-3xl border border-line bg-bg px-5 py-3 text-[15px] leading-relaxed placeholder:text-muted/70 focus:border-rose focus:outline-none focus:ring-4 focus:ring-[var(--ring)]"
+              onCancel={() => setShowVoiceRecorder(false)}
             />
-            <Button type="submit" variant="rose" className="size-12 shrink-0 p-0" disabled={!draft.trim() || sending} aria-label="Send">
-              {sending ? <LoaderCircle className="size-5 animate-spin" /> : <ArrowUp className="size-5" />}
-            </Button>
-          </form>
+          ) : (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                void send();
+              }}
+              className="flex items-end gap-2"
+            >
+              {/* Mic button for Voice Note */}
+              <button
+                type="button"
+                onClick={() => setShowVoiceRecorder(true)}
+                className="flex size-12 shrink-0 items-center justify-center rounded-3xl border border-line bg-surface hover:bg-surface-2 text-muted hover:text-rose transition"
+                aria-label="Record voice note"
+                title="Send a voice note"
+              >
+                <Mic className="size-5" />
+              </button>
+
+              <label htmlFor="composer" className="sr-only">
+                Message
+              </label>
+              <textarea
+                id="composer"
+                value={draft}
+                onChange={(e) => handleDraftChange(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+                    e.preventDefault();
+                    void send();
+                  }
+                }}
+                rows={1}
+                placeholder="Type what's on your mind…"
+                className="max-h-40 min-h-12 flex-1 resize-none rounded-3xl border border-line bg-bg px-5 py-3 text-[15px] leading-relaxed placeholder:text-muted/70 focus:border-rose focus:outline-none focus:ring-4 focus:ring-[var(--ring)]"
+              />
+
+              <Button
+                type="submit"
+                variant="rose"
+                className="size-12 shrink-0 p-0"
+                disabled={!draft.trim() || sending}
+                aria-label="Send"
+              >
+                {sending ? <LoaderCircle className="size-5 animate-spin" /> : <ArrowUp className="size-5" />}
+              </Button>
+            </form>
+          )}
+
           <p className="mt-2 px-2 text-[11px] text-muted">
             Peer support, not therapy · Numbers, socials and links are blocked · Enter to send, Shift+Enter for a new line
           </p>
@@ -308,7 +547,12 @@ export function ChatRoom({ initial }: { initial: SessionView }) {
         </p>
       ) : null}
 
-      <ReportDialog sessionId={initial.id} open={reportOpen} onClose={() => setReportOpen(false)} onReported={() => pollNow.current()} />
+      <ReportDialog
+        sessionId={initial.id}
+        open={reportOpen}
+        onClose={() => setReportOpen(false)}
+        onReported={() => pollNow.current()}
+      />
     </div>
   );
 }
@@ -328,17 +572,43 @@ function statusLabel(status: string): string {
   }
 }
 
+function ReadReceipt({ status }: { status: string }) {
+  if (status === "READ") {
+    return (
+      <span className="inline-flex text-rose" title="Read">
+        <CheckCheck className="size-3" />
+      </span>
+    );
+  }
+  if (status === "DELIVERED") {
+    return (
+      <span className="inline-flex text-bg/80" title="Delivered">
+        <CheckCheck className="size-3" />
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex text-bg/60" title="Sent">
+      <Check className="size-3" />
+    </span>
+  );
+}
+
 function MessageBubble({ message, mounted }: { message: Message; mounted: boolean }) {
   if (message.kind === "CRISIS") {
     return (
-      <div className="mx-auto max-w-md rounded-3xl border border-danger/20 bg-danger-soft px-5 py-4 text-sm leading-relaxed">
+      <div className="mx-auto max-w-md rounded-3xl border border-danger/30 bg-danger-soft px-5 py-4 text-sm leading-relaxed shadow-soft">
         <p className="flex items-center gap-2 font-semibold text-danger">
           <LifeBuoy className="size-4" aria-hidden /> We&apos;re here with you
         </p>
         <p className="mt-1.5 text-ink">{message.body}</p>
         <div className="mt-3 flex flex-wrap gap-2">
           {HELPLINES.slice(0, 2).map((h) => (
-            <a key={h.number} href={`tel:${h.number}`} className="rounded-full bg-surface px-3 py-1.5 text-xs font-semibold text-danger ring-1 ring-danger/20">
+            <a
+              key={h.number}
+              href={`tel:${h.number}`}
+              className="rounded-full bg-surface px-3 py-1.5 text-xs font-semibold text-danger ring-1 ring-danger/20 hover:bg-danger-soft"
+            >
               Call {h.number}
             </a>
           ))}
@@ -346,20 +616,42 @@ function MessageBubble({ message, mounted }: { message: Message; mounted: boolea
       </div>
     );
   }
+
   if (message.kind === "SYSTEM") {
-    return <p className="mx-auto max-w-md text-balance text-center text-xs leading-relaxed text-muted">{message.body}</p>;
+    return (
+      <p className="mx-auto max-w-md text-balance text-center text-xs leading-relaxed text-muted">{message.body}</p>
+    );
   }
-  const time = mounted ? new Date(message.createdAt).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" }) : "\u00a0";
+
+  const time = mounted
+    ? new Date(message.createdAt).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" })
+    : "\u00a0";
+
+  const isAudio = message.kind === "AUDIO" || message.mediaType === "AUDIO";
+
   return (
     <div className={cn("flex", message.mine ? "justify-end" : "justify-start")}>
       <div
         className={cn(
-          "max-w-[82%] rounded-3xl px-4 py-2.5 text-[15px] leading-relaxed shadow-soft sm:max-w-[70%]",
+          "max-w-[84%] rounded-3xl px-4 py-2.5 text-[15px] leading-relaxed shadow-soft sm:max-w-[72%]",
           message.mine ? "rounded-br-lg bg-ink text-bg" : "rounded-bl-lg bg-surface-2 text-ink",
         )}
       >
-        <p className="whitespace-pre-wrap break-words">{message.body}</p>
-        <p className={cn("mt-1 text-right text-[10px]", message.mine ? "text-bg/60" : "text-muted")}>{time}</p>
+        {isAudio && message.mediaUrl ? (
+          <AudioPlayer
+            src={message.mediaUrl}
+            duration={message.audioDuration}
+            isMine={message.mine}
+            body={message.body}
+          />
+        ) : (
+          <p className="whitespace-pre-wrap break-words">{message.body}</p>
+        )}
+
+        <div className={cn("mt-1 flex items-center justify-end gap-1 text-[10px]", message.mine ? "text-bg/60" : "text-muted")}>
+          <span>{time}</span>
+          {message.mine ? <ReadReceipt status={message.status} /> : null}
+        </div>
       </div>
     </div>
   );
@@ -395,8 +687,10 @@ function WaitingCard({
           <p className="mt-5 font-serif text-3xl">Waiting for {name}…</p>
           <p className="mt-2 text-sm leading-relaxed text-muted">
             They&apos;ll get a notification now. If they can&apos;t join within{" "}
-            <span className="font-mono tabular-nums text-ink">{secondsLeft === null ? "5:00" : formatClock(secondsLeft)}</span>, the request is
-            cancelled and nothing is charged.
+            <span className="font-mono tabular-nums text-ink">
+              {secondsLeft === null ? "5:00" : formatClock(secondsLeft)}
+            </span>
+            , the request is cancelled and nothing is charged.
           </p>
           <Button variant="secondary" className="mt-6" onClick={onCancel} disabled={pending}>
             Cancel request
@@ -406,7 +700,10 @@ function WaitingCard({
         <>
           <p className="mt-5 font-serif text-3xl">{name} wants to talk</p>
           <p className="mt-2 text-sm text-muted">
-            Expires in <span className="font-mono tabular-nums text-ink">{secondsLeft === null ? "—" : formatClock(secondsLeft)}</span>
+            Expires in{" "}
+            <span className="font-mono tabular-nums text-ink">
+              {secondsLeft === null ? "—" : formatClock(secondsLeft)}
+            </span>
           </p>
           <div className="mt-6 flex justify-center gap-2">
             <Button variant="secondary" onClick={onDecline} disabled={pending}>
@@ -422,7 +719,13 @@ function WaitingCard({
   );
 }
 
-function EndedCard({ view, counterpartName }: { view: Omit<SessionView, "messages">; counterpartName: string }) {
+function EndedCard({
+  view,
+  counterpartName,
+}: {
+  view: Omit<SessionView, "messages">;
+  counterpartName: string;
+}) {
   const title =
     view.status === "ENDED"
       ? "This chat has ended"
@@ -457,7 +760,10 @@ function EndedCard({ view, counterpartName }: { view: Omit<SessionView, "message
             Back to dashboard
           </ButtonLink>
         )}
-        <Link href="/help" className="inline-flex h-11 items-center px-4 text-sm text-muted underline-offset-2 hover:underline">
+        <Link
+          href="/help"
+          className="inline-flex h-11 items-center px-4 text-sm text-muted underline-offset-2 hover:underline"
+        >
           More support options
         </Link>
       </div>

@@ -49,7 +49,7 @@ export function RequestsPanel({ initial }: { initial: Data }) {
 
   // A small heads-up in the tab title when someone is waiting.
   useEffect(() => {
-    const base = "Dashboard · HeartSync";
+    const base = "Dashboard · MannMitr";
     document.title = data.requests.length ? `(${data.requests.length}) ${base}` : base;
   }, [data.requests.length]);
 

@@ -18,30 +18,38 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 
+import { DailyQuoteCard } from "@/components/effects/daily-quote";
 import { Marquee } from "@/components/effects/marquee";
 import { Reveal } from "@/components/effects/reveal";
 import { SpotlightCard } from "@/components/effects/spotlight-card";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge, OnlineDot } from "@/components/ui/badge";
 import { ButtonLink, ShimmerLink } from "@/components/ui/button";
+import { FavoriteButton } from "@/components/listeners/favorite-button";
 import { Container, SectionHeading } from "@/components/ui/section";
 import { FREE_CHAT_MINUTES, HELPLINES, LANGUAGES, LISTENER_TITLES, PACKS, SUPPORT_PILLARS, TOPICS } from "@/lib/constants";
 import { formatRupees } from "@/lib/session-rules";
 import { cn, splitList } from "@/lib/utils";
 
 const MARQUEE_ROW_A = [
+  "No rank defines your soul",
   "Physical health & energy",
-  "Stress & mental well-being",
+  "Ek score tumhari qeemat tay nahi karta",
   "Academic pressure & failure",
+  "Rest is not surrender",
   "Life beyond the exam",
+  "Tum akele nahi ho",
   "Study fatigue & burnout",
   "Hostel life & homesick",
 ];
 const MARQUEE_ROW_B = [
-  "Family pressure & expectations",
+  "Failure is an event, never a person",
+  "Family expectations & guilt",
+  "Breathe. One day at a time",
   "Loneliness & friendship",
+  "Your parents need you alive, not just successful",
   "A safe space to talk",
-  "Somatic stress & sleep debt",
+  "5 saal baad koi attempt nahi puchega",
   "Mock tests & drop year",
   "Zero judgment listening",
 ];
@@ -187,12 +195,12 @@ function BlockedPreview() {
   );
 }
 
-export function WhyHeartSync() {
+export function WhyMannMitr() {
   return (
     <section className="py-24">
       <Container>
         <SectionHeading
-          eyebrow="Why HeartSync"
+          eyebrow="Why MannMitr"
           title={
             <>
               Built for trust, <span className="italic">not for swipes.</span>
@@ -298,7 +306,7 @@ export function HowWeStarted() {
               <span className="italic text-rose">suffer in silence.</span>
             </>
           }
-          description="HeartSync wasn't created in a boardroom. It was born from hostel rooms, coaching corridors, and the painful reality of losing peers to academic pressure. We already went through that fire — and we couldn't just look away."
+          description="MannMitr wasn't created in a boardroom. It was born from hostel rooms, coaching corridors, and the painful reality of losing peers to academic pressure. We already went through that fire — and we couldn't just look away."
         />
 
         <div className="mt-14 grid gap-6 md:grid-cols-3">
@@ -375,7 +383,7 @@ export function HowWeStarted() {
                   Our promise: A safe corner with zero barriers
                 </h3>
                 <p className="mt-3 leading-relaxed text-muted">
-                  HeartSync is 100% free, strictly anonymous, and platonic. No credit cards, no public profiles, no phone numbers shared. Every listener is verified and trained to listen with empathy, patience, and zero judgment.
+                  MannMitr is 100% free, strictly anonymous, and platonic. No credit cards, no public profiles, no phone numbers shared. Every listener is verified and trained to listen with empathy, patience, and zero judgment.
                 </p>
               </div>
               <div className="mt-6 flex flex-col gap-3 border-t border-line/60 pt-4 sm:flex-row sm:items-center sm:justify-between">
@@ -397,6 +405,38 @@ export function HowWeStarted() {
   );
 }
 
+export function DailyAffirmationSection() {
+  return (
+    <section className="py-16 sm:py-20 border-y border-line/40 bg-surface/40">
+      <Container>
+        <div className="mx-auto max-w-3xl text-center">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-rose/10 px-3.5 py-1 text-xs font-semibold text-rose">
+            <Sparkles className="size-3.5" /> Daily Affirmations &amp; Punchlines
+          </span>
+          <h2 className="mt-3 font-serif text-3xl font-bold tracking-tight text-ink sm:text-4xl">
+            Words to remind you that your life is{" "}
+            <span className="italic text-rose">bigger than any exam.</span>
+          </h2>
+          <p className="mx-auto mt-2.5 max-w-xl text-sm leading-relaxed text-muted">
+            Hostel rooms at 3 AM can feel overwhelmingly lonely. Here are unfiltered punchline truths from people who survived the exact same storm.
+          </p>
+        </div>
+        <div className="mx-auto mt-8 max-w-2xl">
+          <DailyQuoteCard />
+          <div className="mt-4 text-center">
+            <Link
+              href="/how-we-started#quotes"
+              className="inline-flex items-center gap-1.5 text-xs font-medium text-rose hover:underline"
+            >
+              Browse all 16 motivational punchlines &rarr;
+            </Link>
+          </div>
+        </div>
+      </Container>
+    </section>
+  );
+}
+
 const CAN = [
   "Listen without judging",
   "Share what helped them",
@@ -407,7 +447,7 @@ const CANNOT = [
   "Diagnose anything or suggest medicines",
   "Call themselves a therapist or doctor",
   "Ask for your number, socials or to meet",
-  "Take money outside HeartSync",
+  "Take money outside MannMitr",
 ];
 
 export function CanAndCannot() {
@@ -469,6 +509,7 @@ export type ListenerCardData = {
   avatarHue: number;
   isOnline: boolean;
   isVerified?: boolean;
+  isFavorited?: boolean;
   ratingSum: number;
   ratingCount: number;
 };
@@ -484,9 +525,12 @@ export function ListenerCard({ listener, className }: { listener: ListenerCardDa
       <SpotlightCard className="flex h-full flex-col">
         <div className="flex items-start justify-between gap-3">
           <Avatar name={listener.displayName} hue={listener.avatarHue} size={56} />
-          <span className="rounded-full bg-surface-2 px-2.5 py-1 text-xs font-medium">
-            {rating ? `★ ${rating}` : <span className="text-muted">New</span>}
-          </span>
+          <div className="flex items-center gap-1.5">
+            <span className="rounded-full bg-surface-2 px-2.5 py-1 text-xs font-medium">
+              {rating ? `★ ${rating}` : <span className="text-muted">New</span>}
+            </span>
+            <FavoriteButton listenerProfileId={listener.id} initialFavorited={listener.isFavorited} />
+          </div>
         </div>
         <div className="mt-4 min-w-0">
           <p className="flex items-center gap-1.5 text-lg font-semibold tracking-tight">
@@ -610,7 +654,7 @@ export function PricingTeaser() {
               Community peer support. <span className="italic">Always free.</span>
             </>
           }
-          description="We do not charge by the minute or sell subscription packs. HeartSync is powered by verified peers who believe in listening without judgment."
+          description="We do not charge by the minute or sell subscription packs. MannMitr is powered by verified peers who believe in listening without judgment."
         />
         <div className="mt-10 rounded-3xl border border-rose/30 bg-rose-soft/20 p-8 text-center sm:p-12 shadow-soft">
           <p className="font-serif text-3xl font-medium sm:text-4xl text-ink">
@@ -678,7 +722,7 @@ export function ListenerCta() {
 export const FAQS = [
   {
     q: "Is this therapy?",
-    a: "No. HeartSync is peer support — trained, verified people who listen and share life experience, like an older sibling would. Listeners don't diagnose, treat or prescribe. If you need a therapist or doctor, your listener will encourage you to see one.",
+    a: "No. MannMitr is peer support — trained, verified people who listen and share life experience, like an older sibling would. Listeners don't diagnose, treat or prescribe. If you need a therapist or doctor, your listener will encourage you to see one.",
   },
   {
     q: "Who are the listeners?",
@@ -690,14 +734,14 @@ export const FAQS = [
   },
   {
     q: "Can I meet my listener or get their number?",
-    a: "No — and that's on purpose. Every conversation stays inside HeartSync. Meet-up requests, contact sharing and anything romantic are blocked and can get an account removed.",
+    a: "No — and that's on purpose. Every conversation stays inside MannMitr. Meet-up requests, contact sharing and anything romantic are blocked and can get an account removed.",
   },
   {
     q: "What if I'm in crisis?",
     a: "If you're in danger or thinking about ending your life, please call Tele-MANAS on 14416 (free, 24×7) or 112 right now. If crisis words come up in a chat, we show helplines to both people and alert our safety team.",
   },
   {
-    q: "Who can use HeartSync?",
+    q: "Who can use MannMitr?",
     a: "Anyone 18 or older in India. If you're under 18 and need to talk, Childline (1098) and Tele-MANAS (14416) are free and available 24×7.",
   },
   {

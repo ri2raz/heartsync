@@ -57,7 +57,7 @@ export async function submitContactMessage(_prev: FormState, form: FormData): Pr
     revalidatePath("/admin");
     return { success: "Thank you for reaching out! Your message has been sent to the team and we will reply to your email." };
   } catch (error) {
-    console.error("[HeartSync] Contact submission error:", error);
+    console.error("[MannMitr] Contact submission error:", error);
     return { error: "Could not send message at this time. Please try again or email us directly." };
   }
 }

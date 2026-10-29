@@ -74,10 +74,27 @@ export async function declineChat(sessionId: string): Promise<FormState> {
 export async function rateChat(_prev: FormState, form: FormData): Promise<FormState> {
   const user = await requireUser();
   const sessionId = str(form, "sessionId");
+  const rawWellbeing = form.get("wellbeingScore");
+  const wellbeingScore = rawWellbeing ? Number(rawWellbeing) : null;
+  const wellbeingFeedback = str(form, "wellbeingFeedback").trim() || null;
+
   const result = await run(() =>
-    rateSession(user.id, sessionId, Number(str(form, "rating")), str(form, "feedback").trim() || null),
+    rateSession(
+      user.id,
+      sessionId,
+      Number(str(form, "rating")),
+      str(form, "feedback").trim() || null,
+      wellbeingScore,
+      wellbeingFeedback,
+    ),
   );
-  return result.error ? result : { success: "Thank you — your rating helps keep HeartSync safe and kind." };
+  if (result.error) return result;
+  const isLow = wellbeingScore !== null && wellbeingScore <= 2;
+  return {
+    success: isLow
+      ? "Thank you for sharing honestly. We've notified our safety team and provided immediate helplines below. You are never alone."
+      : "Thank you — your reflection and rating help keep MannMitr supportive and kind.",
+  };
 }
 
 export async function reportChat(_prev: FormState, form: FormData): Promise<FormState> {

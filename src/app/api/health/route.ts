@@ -1,11 +1,10 @@
-import { NextResponse, type NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { ADMIN_NOTIFICATION_EMAIL, resendApiKey, sendAdminEmail } from "@/lib/email";
+import { ADMIN_NOTIFICATION_EMAIL, resendApiKey } from "@/lib/email";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(request: NextRequest) {
-  const rawUrl = process.env.DATABASE_URL;
+export async function GET() {
   let dbOk = false;
   let userCount = 0;
   let errorMsg = null;

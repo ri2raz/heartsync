@@ -1,8 +1,8 @@
 {
-  "name": "heartsync",
+  "name": "mannmitr",
   "version": "0.1.0",
   "private": true,
-  "description": "HeartSync — talk to a verified big bro or big sis. Peer support, not therapy.",
+  "description": "MannMitr — talk to a verified big bro or big sis. Peer support, not therapy.",
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate && prisma db push --accept-data-loss && next build",

@@ -4,6 +4,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { StartChatForm } from "@/components/listeners/start-chat-form";
+import { FavoriteButton } from "@/components/listeners/favorite-button";
+import { ScheduleBookingDialog } from "@/components/listeners/schedule-booking-dialog";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge, OnlineDot } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
@@ -20,7 +22,7 @@ async function getListener(id: string) {
   try {
     return await db.listenerProfile.findFirst({ where: { id, isActive: true } });
   } catch (error) {
-    console.error("[HeartSync] Failed to fetch listener:", error);
+    console.error("[MannMitr] Failed to fetch listener:", error);
     return null;
   }
 }
@@ -43,10 +45,18 @@ export default async function ListenerPage({ params }: Params) {
   const langs = splitList(listener.languages).map((c) => LANGUAGES[c as keyof typeof LANGUAGES] ?? c);
   const topics = splitList(listener.topics).map((t) => TOPICS[t as keyof typeof TOPICS] ?? t);
   let chats = 0;
+  let isFav = false;
   try {
-    chats = await db.chatSession.count({ where: { listenerId: listener.id, status: "ENDED" } });
+    const [c, fav] = await Promise.all([
+      db.chatSession.count({ where: { listenerId: listener.id, status: "ENDED" } }),
+      user && user.role === "SEEKER"
+        ? db.favoriteListener.count({ where: { userId: user.id, listenerId: listener.id } })
+        : 0,
+    ]);
+    chats = c;
+    isFav = fav > 0;
   } catch (error) {
-    console.error("[HeartSync] Failed to count chats:", error);
+    console.error("[MannMitr] Failed to count chats/favorites:", error);
   }
 
   return (
@@ -59,13 +69,18 @@ export default async function ListenerPage({ params }: Params) {
         <section>
           <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
             <Avatar name={listener.displayName} hue={listener.avatarHue} size={96} />
-            <div>
-              <h1 className="flex items-center gap-2 font-serif text-5xl leading-none tracking-tight">
-                {listener.displayName}
-                {listener.isVerified ? (
-                  <BadgeCheck className="size-6 text-rose" aria-label="Verified Listener" />
+            <div className="flex-1">
+              <div className="flex items-center justify-between gap-3">
+                <h1 className="flex items-center gap-2 font-serif text-5xl leading-none tracking-tight">
+                  {listener.displayName}
+                  {listener.isVerified ? (
+                    <BadgeCheck className="size-6 text-rose" aria-label="Verified Listener" />
+                  ) : null}
+                </h1>
+                {user && user.role === "SEEKER" ? (
+                  <FavoriteButton listenerProfileId={listener.id} initialFavorited={isFav} />
                 ) : null}
-              </h1>
+              </div>
               <div className="mt-2 flex flex-wrap items-center gap-2 text-muted">
                 <OnlineDot online={online} /> {title} · {online ? "Online now" : "Offline"}
                 {listener.isVerified ? (
@@ -140,13 +155,23 @@ export default async function ListenerPage({ params }: Params) {
                   personal account to start chats.
                 </p>
               ) : (
-                <StartChatForm
-                  listenerId={listener.id}
-                  listenerName={listener.displayName}
-                  freeAvailable={!user.freeChatUsed}
-                  balance={user.minutesBalance}
-                  online={online}
-                />
+                <div className="space-y-4">
+                  <StartChatForm
+                    listenerId={listener.id}
+                    listenerName={listener.displayName}
+                    freeAvailable={!user.freeChatUsed}
+                    balance={user.minutesBalance}
+                    online={online}
+                  />
+                  <div className="relative flex items-center justify-center border-t border-line/60 pt-3 text-center">
+                    <span className="bg-surface px-2 text-[11px] font-medium uppercase tracking-wider text-muted">
+                      or plan ahead
+                    </span>
+                  </div>
+                  <div className="flex justify-center">
+                    <ScheduleBookingDialog listenerId={listener.id} listenerName={listener.displayName} />
+                  </div>
+                </div>
               )}
             </div>
           </div>

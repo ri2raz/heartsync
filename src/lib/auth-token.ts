@@ -5,13 +5,13 @@ import { jwtVerify, SignJWT } from "jose";
 export const SESSION_COOKIE = "hs_session";
 export const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 30;
 
-const DEV_SECRET = "heartsync-local-development-secret-do-not-use-in-production";
+const DEV_SECRET = "mannmitr-local-development-secret-do-not-use-in-production";
 
 function secretKey(): Uint8Array {
   const secret = process.env.AUTH_SECRET;
   if (!secret) {
     if (process.env.NODE_ENV === "production") {
-      console.warn("[HeartSync] AUTH_SECRET is not set in production. Using fallback development secret.");
+      console.warn("[MannMitr] AUTH_SECRET is not set in production. Using fallback development secret.");
     }
     return new TextEncoder().encode(DEV_SECRET);
   }

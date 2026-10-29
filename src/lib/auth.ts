@@ -40,7 +40,7 @@ export const getCurrentUser = cache(async () => {
     if ((error as { digest?: string })?.digest === "DYNAMIC_SERVER_USAGE") {
       throw error;
     }
-    console.error("[HeartSync] getCurrentUser error:", error);
+    console.error("[MannMitr] getCurrentUser error:", error);
     return null;
   }
 });

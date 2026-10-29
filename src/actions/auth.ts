@@ -51,7 +51,7 @@ export async function signup(_prev: FormState, form: FormData): Promise<FormStat
     if (!isAdult(dob)) {
       return {
         error:
-          "HeartSync is only for people who are 18 or older. If you need to talk to someone now, call Tele-MANAS on 14416 or Childline on 1098 — both are free.",
+          "MannMitr is only for people who are 18 or older. If you need to talk to someone now, call Tele-MANAS on 14416 or Childline on 1098 — both are free.",
         values,
       };
     }
@@ -87,15 +87,15 @@ export async function signup(_prev: FormState, form: FormData): Promise<FormStat
       title: `📝 User Registration Initiated: ${alias}`,
       senderName: alias,
       senderEmail: email,
-      subject: `New registration initiated on HeartSync (OTP Sent)`,
-      details: `A user initiated signup on HeartSync.\n\nAlias: ${alias}\nEmail: ${email}\nDate of Birth: ${dateOfBirth}`,
+      subject: `New registration initiated on MannMitr (OTP Sent)`,
+      details: `A user initiated signup on MannMitr.\n\nAlias: ${alias}\nEmail: ${email}\nDate of Birth: ${dateOfBirth}`,
       metadata: {
         Alias: alias,
         Email: email,
         "Date of Birth": dateOfBirth,
         "Initiated At": new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }) + " IST",
       },
-    }).catch((e) => console.error("[HeartSync] Signup admin email error:", e));
+    }).catch((e) => console.error("[MannMitr] Signup admin email error:", e));
 
     // Generate 6-digit OTP valid for 10 minutes
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
@@ -116,7 +116,7 @@ export async function signup(_prev: FormState, form: FormData): Promise<FormStat
     if ((error as { digest?: string })?.digest?.startsWith("NEXT_REDIRECT")) {
       throw error;
     }
-    console.error("[HeartSync] Signup error:", error);
+    console.error("[MannMitr] Signup error:", error);
     const msg = error instanceof Error ? error.message : String(error);
     if (msg.includes("DATABASE_URL") || msg.includes("PrismaClientInitializationError") || !process.env.DATABASE_URL) {
       return {
@@ -199,7 +199,7 @@ export async function verifyOtp(_prev: FormState, form: FormData): Promise<FormS
       title: `🎉 New User Verified & Joined: ${user.alias}`,
       senderName: user.alias,
       senderEmail: user.email,
-      subject: `New member account activated on HeartSync`,
+      subject: `New member account activated on MannMitr`,
       details: `A new user verified their email via OTP and activated their account.\n\nRole: ${user.role}\nEmail: ${user.email}`,
       metadata: {
         "User ID": user.id,
@@ -208,7 +208,7 @@ export async function verifyOtp(_prev: FormState, form: FormData): Promise<FormS
         Role: user.role,
         "Activated At": new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }) + " IST",
       },
-    }).catch((e) => console.error("[HeartSync] Signup admin email error:", e));
+    }).catch((e) => console.error("[MannMitr] Signup admin email error:", e));
 
     // Start authenticated session
     await startSession(user.id);
@@ -219,7 +219,7 @@ export async function verifyOtp(_prev: FormState, form: FormData): Promise<FormS
     if ((error as { digest?: string })?.digest?.startsWith("NEXT_REDIRECT")) {
       throw error;
     }
-    console.error("[HeartSync] OTP verification error:", error);
+    console.error("[MannMitr] OTP verification error:", error);
     return { error: "Could not verify code right now. Please try again.", values };
   }
 }
@@ -257,7 +257,7 @@ export async function resendOtp(_prev: FormState, form: FormData): Promise<FormS
     await sendOtpEmail({ email, otp, alias: user.alias });
     return { success: "A new 6-digit verification code has been sent to your email!" };
   } catch (error) {
-    console.error("[HeartSync] Resend OTP error:", error);
+    console.error("[MannMitr] Resend OTP error:", error);
     return { error: "Could not resend verification code right now. Please try again." };
   }
 }
@@ -325,7 +325,7 @@ export async function login(_prev: FormState, form: FormData): Promise<FormState
     if ((error as { digest?: string })?.digest?.startsWith("NEXT_REDIRECT")) {
       throw error;
     }
-    console.error("[HeartSync] Login error:", error);
+    console.error("[MannMitr] Login error:", error);
     const msg = error instanceof Error ? error.message : String(error);
     if (msg.includes("DATABASE_URL") || msg.includes("PrismaClientInitializationError") || !process.env.DATABASE_URL) {
       return {

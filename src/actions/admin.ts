@@ -41,7 +41,7 @@ export async function approveApplication(applicationId: string): Promise<FormSta
     senderName: displayName,
     senderEmail: app.user.email,
     subject: `Listener application approved & profile activated`,
-    details: `${app.fullName} is now an active peer listener on HeartSync.`,
+    details: `${app.fullName} is now an active peer listener on MannMitr.`,
     metadata: {
       "User ID": app.userId,
       "Full Name": app.fullName,
@@ -50,7 +50,7 @@ export async function approveApplication(applicationId: string): Promise<FormSta
       "City": app.city,
       "Approved At": new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }) + " IST",
     },
-  }).catch((e) => console.error("[HeartSync] Application approval email error:", e));
+  }).catch((e) => console.error("[MannMitr] Application approval email error:", e));
 
   revalidatePath("/admin");
   return { success: `${displayName} is now a listener.` };

@@ -1,4 +1,4 @@
-// HeartSync data model.
+// MannMitr data model.
 // SQLite is used for local development. For production, change `provider` to "postgresql".
 // Enum-like fields are stored as strings so the schema works on both databases;
 // their allowed values live in src/lib/constants.ts.
@@ -33,6 +33,8 @@ model User {
   messages        Message[]
   reports         Report[]
   payments        Payment[]
+  favorites       FavoriteListener[]
+  seekerBookings  ScheduledBooking[]   @relation("SeekerBookings")
 }
 
 model EmailVerificationOtp {
@@ -72,6 +74,8 @@ model ListenerProfile {
   createdAt     DateTime @default(now())
 
   sessions      ChatSession[]
+  favoritedBy   FavoriteListener[]
+  bookings      ScheduledBooking[]
 
   @@index([isActive, isOnline])
   @@index([isVerified])
@@ -116,6 +120,9 @@ model ChatSession {
   endReason      String?
   minutesRefunded Int      @default(0)
   crisisFlaggedAt DateTime?
+  wellbeingScore Int?
+  wellbeingFlaggedAt DateTime?
+  wellbeingFeedback String?
   rating         Int?
   feedback       String?
   seekerIp       String?
@@ -127,19 +134,27 @@ model ChatSession {
   @@index([seekerId, createdAt])
   @@index([listenerId, status])
   @@index([crisisFlaggedAt])
+  @@index([wellbeingFlaggedAt])
 }
 
 model Message {
-  id        Int         @id @default(autoincrement())
-  sessionId String
-  session   ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  id          Int         @id @default(autoincrement())
+  sessionId   String
+  session     ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   /// Null for system messages.
-  senderId  String?
-  sender    User?       @relation(fields: [senderId], references: [id], onDelete: SetNull)
-  /// TEXT | SYSTEM | CRISIS
-  kind      String      @default("TEXT")
-  body      String
-  createdAt DateTime    @default(now())
+  senderId    String?
+  sender      User?       @relation(fields: [senderId], references: [id], onDelete: SetNull)
+  /// TEXT | SYSTEM | CRISIS | AUDIO
+  kind        String      @default("TEXT")
+  body        String
+  mediaType   String      @default("TEXT")
+  mediaUrl    String?
+  audioDuration Int?
+  /// SENT | DELIVERED | READ
+  status      String      @default("SENT")
+  deliveredAt DateTime?
+  readAt      DateTime?
+  createdAt   DateTime    @default(now())
 
   @@index([sessionId, id])
 }
@@ -187,5 +202,36 @@ model ContactMessage {
   createdAt DateTime @default(now())
 
   @@index([status, createdAt])
+}
+
+model FavoriteListener {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  listenerId String
+  listener   ListenerProfile @relation(fields: [listenerId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@unique([userId, listenerId])
+  @@index([userId])
+  @@index([listenerId])
+}
+
+model ScheduledBooking {
+  id           String   @id @default(cuid())
+  seekerId     String
+  seeker       User     @relation("SeekerBookings", fields: [seekerId], references: [id], onDelete: Cascade)
+  listenerId   String
+  listener     ListenerProfile @relation(fields: [listenerId], references: [id], onDelete: Cascade)
+  scheduledFor DateTime
+  minutes      Int      @default(20)
+  topic        String?
+  note         String?
+  /// PENDING | CONFIRMED | CANCELLED | COMPLETED
+  status       String   @default("CONFIRMED")
+  createdAt    DateTime @default(now())
+
+  @@index([seekerId, scheduledFor])
+  @@index([listenerId, scheduledFor])
 }
 

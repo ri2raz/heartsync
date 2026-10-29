@@ -3,6 +3,7 @@ import {
   BadgeCheck,
   Clock,
   Flag,
+  LifeBuoy,
   Mail,
   MessageCircle,
   Trash2,
@@ -68,6 +69,7 @@ export default async function AdminPage() {
   let applications: Awaited<ReturnType<typeof db.listenerApplication.findMany<{ include: { user: true } }>>> = [];
   let reports: Awaited<ReturnType<typeof db.report.findMany<{ include: { reporter: { select: { alias: true } }; session: { select: { id: true; seekerId: true; seekerIp: true; listenerIp: true; seeker: { select: { alias: true } }; listener: { select: { displayName: true; userId: true } } } } } }>>> = [];
   let crisis: Awaited<ReturnType<typeof db.chatSession.findMany<{ include: { seeker: { select: { alias: true } }; listener: { select: { displayName: true } } } }>>> = [];
+  let lowWellbeing: Awaited<ReturnType<typeof db.chatSession.findMany<{ include: { seeker: { select: { alias: true } }; listener: { select: { displayName: true } } } }>>> = [];
   let listeners: Awaited<ReturnType<typeof db.listenerProfile.findMany<{ include: { user: { select: { email: true; isSuspended: true } } } }>>> = [];
   let contactMessages: Awaited<ReturnType<typeof db.contactMessage.findMany>> = [];
   let recentSessions: Awaited<ReturnType<typeof db.chatSession.findMany<{ include: { seeker: { select: { alias: true } }; listener: { select: { displayName: true } } } }>>> = [];
@@ -134,6 +136,11 @@ export default async function AdminPage() {
       db.listenerProfile.aggregate({
         _sum: { minutesHeard: true },
       }),
+      db.chatSession.findMany({
+        where: { wellbeingFlaggedAt: { gte: weekAgo } },
+        orderBy: { wellbeingFlaggedAt: "desc" },
+        include: { seeker: { select: { alias: true } }, listener: { select: { displayName: true } } },
+      }),
     ]);
 
     applications = results[0];
@@ -144,8 +151,9 @@ export default async function AdminPage() {
     recentSessions = results[5];
     allUsers = results[6];
     totalMinutesHeard = results[7];
+    lowWellbeing = results[8];
   } catch (error) {
-    console.error("[HeartSync] Failed to load some admin dashboard queries:", error);
+    console.error("[MannMitr] Failed to load some admin dashboard queries:", error);
   }
 
   const activeSessions = recentSessions.filter((s) => s.status === "ACTIVE");
@@ -154,7 +162,7 @@ export default async function AdminPage() {
   return (
     <Container className="max-w-6xl">
       <PageHeader
-        eyebrow="HeartSync Operations"
+        eyebrow="MannMitr Operations"
         title={
           <>
             Admin & <span className="italic text-rose">Safety Hub.</span>
@@ -314,6 +322,35 @@ export default async function AdminPage() {
             </ul>
           ) : (
             <p className="mt-4 text-sm text-muted">No crisis flags this week. Helplines are continuously presented to seekers.</p>
+          )}
+        </section>
+
+        {/* Low Wellbeing Follow-ups */}
+        <section id="wellbeing-flags">
+          <SectionTitle icon={LifeBuoy} title="Low Wellbeing Check-ins (Last 7 Days)" count={lowWellbeing.length} tone="amber" />
+          {lowWellbeing.length ? (
+            <ul className="mt-4 divide-y divide-line overflow-hidden rounded-3xl border border-amber-500/30 bg-surface shadow-soft">
+              {lowWellbeing.map((s) => (
+                <li key={s.id} className="flex flex-wrap items-center gap-4 px-5 py-4">
+                  <Badge tone="amber">Score: {s.wellbeingScore}/5</Badge>
+                  <p className="flex-1">
+                    <span className="font-medium text-ink">{s.seeker.alias}</span> completed chat with{" "}
+                    <span className="font-medium text-ink">{s.listener.displayName}</span>
+                    <span className="block text-xs text-muted">
+                      Reported low emotional score · Helplines presented automatically · {s.wellbeingFlaggedAt ? fmtDateTime(s.wellbeingFlaggedAt) : ""}
+                    </span>
+                  </p>
+                  <Link
+                    href={`/admin/sessions/${s.id}`}
+                    className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/10 px-4 py-2 text-xs font-semibold text-amber-700 dark:text-amber-300 hover:bg-amber-500/20 transition"
+                  >
+                    Review Session
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-4 text-sm text-muted">No seekers reported low wellbeing scores post-session this week.</p>
           )}
         </section>
 

@@ -2,7 +2,7 @@
  * Message safety checks, run on the server before any chat message is stored.
  *
  * Blocks: sharing contact details or trying to meet, money requests outside the
- * platform, and romantic or sexual solicitation. These keep HeartSync a
+ * platform, and romantic or sexual solicitation. These keep MannMitr a
  * platonic, on-platform peer-support space.
  *
  * Crisis language is never blocked. The message is delivered, the session is
@@ -19,9 +19,9 @@ const NOTICES: Record<BlockCategory, string> = {
   contact:
     "For everyone's safety, phone numbers, social handles, links and meeting up aren't allowed. Keep the conversation here.",
   money:
-    "Payments only happen through HeartSync. Never send or ask for money directly.",
+    "Payments only happen through MannMitr. Never send or ask for money directly.",
   romantic:
-    "HeartSync is strictly platonic. Romantic or sexual messages aren't allowed.",
+    "MannMitr is strictly platonic. Romantic or sexual messages aren't allowed.",
 };
 
 const CONTACT_PHRASES = [
@@ -69,7 +69,7 @@ const PLATFORMS = [
   "twitter",
 ];
 
-/** Words that, next to a platform name, signal an attempt to move off HeartSync. */
+/** Words that, next to a platform name, signal an attempt to move off MannMitr. */
 const SHARING_WORDS = ["id", "handle", "username", "add", "follow", "dm", "message me", "pe aa", "par aa", "number", "link"];
 
 const MONEY_PHRASES = [
@@ -124,9 +124,12 @@ const CRISIS_PHRASES = [
   "kill myself",
   "killing myself",
   "end my life",
+  "ending my life",
+  "feel like ending my life",
   "end it all",
   "want to die",
   "wanna die",
+  "feel like dying",
   "don't want to live",
   "dont want to live",
   "no reason to live",

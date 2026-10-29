@@ -1,9 +1,9 @@
-# HeartSync
+# MannMitr
 
 > **Kisi se baat karni hai? Bina judge kiye sunne wale.**
 > Talk to a verified big bro or big sis — anonymously, safely, in your language.
 
-HeartSync is a peer-support platform for adults in India. Seekers chat anonymously with trained, verified
+MannMitr is a peer-support platform for adults in India. Seekers chat anonymously with trained, verified
 listeners ("big bros" and "big sisters"). It is **peer support, not therapy** — listeners never diagnose,
 prescribe or present themselves as professionals.
 

@@ -67,6 +67,7 @@ describe("romantic or sexual solicitation", () => {
 describe("crisis language", () => {
   it.each([
     "I want to die",
+    "I feel like ending my life",
     "sometimes I think about suicide",
     "I don’t want to live anymore",
     "main mar jaana chahta hoon",
@@ -85,6 +86,12 @@ describe("crisis language", () => {
 describe("moderateMessage", () => {
   it("delivers crisis messages and flags them", () => {
     expect(moderateMessage("I want to die")).toEqual({ allowed: true, crisis: true });
+  });
+
+  it("delivers 'I feel like ending my life' without blocking", () => {
+    const result = moderateMessage("I feel like ending my life");
+    expect(result.allowed).toBe(true);
+    expect(result.crisis).toBe(true);
   });
 
   it("still flags crisis when the message is blocked", () => {

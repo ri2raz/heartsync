@@ -7,7 +7,7 @@ import { VerifyOtpForm } from "@/components/auth/verify-otp-form";
 import { getCurrentUser } from "@/lib/auth";
 import { safeRedirectPath } from "@/lib/utils";
 
-export const metadata: Metadata = { title: "Verify your email · HeartSync" };
+export const metadata: Metadata = { title: "Verify your email · MannMitr" };
 
 const POINTS = [
   { icon: MailCheck, text: "Verification keeps our community safe and spam-free" },

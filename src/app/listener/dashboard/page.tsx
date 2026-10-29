@@ -1,4 +1,4 @@
-import { Clock, MessageCircle, ShieldCheck, Star } from "lucide-react";
+import { Calendar, Clock, MessageCircle, ShieldCheck, Star } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { OnlineToggle } from "@/components/listener/online-toggle";
 import { ProfileForm } from "@/components/listener/profile-form";
 import { RequestsPanel } from "@/components/listener/requests-panel";
+import { Badge } from "@/components/ui/badge";
 import { Container, PageHeader } from "@/components/ui/section";
 import { requireUser } from "@/lib/auth";
 import { pendingRequestsForListener } from "@/lib/chat-service";
@@ -19,7 +20,7 @@ const REMINDERS = [
   "Listen first. Reflect back what you hear before offering advice.",
   "Never diagnose, never suggest medicines. Suggest a professional when it's beyond peer support.",
   "If crisis words come up: stay calm, stay with them, share 14416, and use Report if you're worried.",
-  "Keep it platonic and on HeartSync. No numbers, socials, money or meetups — ever.",
+  "Keep it platonic and on MannMitr. No numbers, socials, money or meetups — ever.",
 ];
 
 export default async function ListenerDashboard() {
@@ -32,9 +33,19 @@ export default async function ListenerDashboard() {
     data: { lastSeenAt: new Date() },
   }).catch(() => {});
 
-  const [requests, completed] = await Promise.all([
+  const [requests, completed, upcomingBookings] = await Promise.all([
     pendingRequestsForListener(user.id),
     db.chatSession.count({ where: { listenerId: profile.id, status: "ENDED" } }),
+    db.scheduledBooking.findMany({
+      where: {
+        listenerId: profile.id,
+        status: { not: "CANCELLED" },
+        scheduledFor: { gte: new Date() },
+      },
+      include: { seeker: { select: { alias: true } } },
+      orderBy: { scheduledFor: "asc" },
+      take: 10,
+    }),
   ]);
   const rating = profile.ratingCount ? (profile.ratingSum / profile.ratingCount).toFixed(1) : "—";
 
@@ -80,6 +91,50 @@ export default async function ListenerDashboard() {
       <section className="mt-10">
         <h2 className="mb-4 text-lg font-semibold">Incoming requests</h2>
         {requests ? <RequestsPanel initial={requests} /> : null}
+      </section>
+
+      {/* Upcoming Scheduled Chats */}
+      <section className="mt-10">
+        <h2 className="mb-4 text-lg font-semibold flex items-center gap-2">
+          <Calendar className="size-5 text-rose" /> Scheduled upcoming chats ({upcomingBookings.length})
+        </h2>
+        {upcomingBookings.length ? (
+          <div className="grid gap-3 sm:grid-cols-2">
+            {upcomingBookings.map((b) => (
+              <div
+                key={b.id}
+                className="flex flex-col justify-between rounded-3xl border border-line bg-surface p-5 shadow-soft"
+              >
+                <div>
+                  <div className="flex items-center justify-between">
+                    <p className="font-semibold text-ink">{b.seeker.alias}</p>
+                    <Badge tone="rose" className="text-xs">
+                      {b.minutes} mins
+                    </Badge>
+                  </div>
+                  <p className="mt-1 text-sm text-rose font-medium">
+                    {new Date(b.scheduledFor).toLocaleDateString("en-IN", {
+                      weekday: "short",
+                      month: "short",
+                      day: "numeric",
+                    })}{" "}
+                    at{" "}
+                    {new Date(b.scheduledFor).toLocaleTimeString("en-IN", {
+                      hour: "numeric",
+                      minute: "2-digit",
+                    })}
+                  </p>
+                  {b.topic ? <p className="mt-2 text-xs text-muted">Topic: {b.topic}</p> : null}
+                  {b.note ? <p className="mt-1 text-xs italic text-muted/80">&ldquo;{b.note}&rdquo;</p> : null}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="rounded-3xl border border-line bg-surface p-6 text-center text-xs text-muted">
+            No upcoming scheduled bookings yet. Seekers can book slots from your public profile.
+          </p>
+        )}
       </section>
 
       <div className="mt-10 grid gap-5 lg:grid-cols-[1.3fr_1fr]">

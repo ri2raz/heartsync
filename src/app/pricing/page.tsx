@@ -9,7 +9,7 @@ export const metadata: Metadata = { title: "100% Free Peer Support" };
 const PLEDGES = [
   {
     title: "Zero Fees, Always",
-    description: "HeartSync was built to ensure mental well-being and empathetic peer listening is accessible to every person, without financial barriers.",
+    description: "MannMitr was built to ensure mental well-being and empathetic peer listening is accessible to every person, without financial barriers.",
   },
   {
     title: "No Cards or Payments Required",
@@ -47,7 +47,7 @@ export default function PricingPage() {
           Talk to a verified listener whenever you need to be heard.
         </h2>
         <p className="mt-3 max-w-2xl text-base leading-relaxed text-muted sm:text-lg">
-          We have completely eliminated paid packs and minute balances. All chat sessions on HeartSync are community-powered and free for everyone.
+          We have completely eliminated paid packs and minute balances. All chat sessions on MannMitr are community-powered and free for everyone.
         </p>
 
         <div className="mt-8 grid gap-6 sm:grid-cols-2">
